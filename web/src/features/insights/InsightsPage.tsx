@@ -104,7 +104,7 @@ export function InsightsPage() {
       {errors.map((m) => <p key={m} className="error">{m}</p>)}
 
       <h3>Utilisation</h3>
-      <p className="muted">Utilisation is booked hours divided by open hours (each resource's opening-hours rule, or 24 hours a day). Checked-in hours show what was really used; no-show hours were released because nobody turned up.</p>
+      <p className="subtitle">Utilisation is booked hours divided by open hours (each resource's opening-hours rule, or 24 hours a day). Checked-in hours show what was really used; no-show hours were released because nobody turned up.</p>
       <div className="row" style={{ marginBottom: "0.75rem" }}>
         <label>From <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
         <label>To <input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>

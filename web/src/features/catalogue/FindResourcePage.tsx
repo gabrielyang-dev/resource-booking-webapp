@@ -1,7 +1,7 @@
-import { FormEvent, useEffect, useState } from "react";
+import { CSSProperties, FormEvent, useEffect, useState } from "react";
 import { api, describeError, Location, Paged, Resource, ResourceType } from "../../api";
 import { localToIso, todayIn, weekdayFrom } from "../../time";
-import { Messages } from "../../ui";
+import { Messages, typeColour } from "../../ui";
 import { ResourcePage, Wanted } from "../bookings/ResourcePage";
 
 const pageSize = 12;
@@ -104,6 +104,7 @@ export function FindResourcePage() {
   return (
     <section>
       <h2>Find a resource</h2>
+      <p className="subtitle">Say what you need, or pick a time to see only what's free and allowed.</p>
 
       {aiEnabled && (
         <form onSubmit={understand} className="card row">
@@ -148,9 +149,9 @@ export function FindResourcePage() {
 
       <div className="grid">
         {resources.map((r) => (
-          <div key={r.id} className="card">
+          <div key={r.id} className="card" style={{ "--type": typeColour(r.resourceTypeName) } as CSSProperties}>
             <strong>{r.name}</strong>
-            <span className="muted">{r.resourceTypeName} · {r.locationName}</span>
+            <span className="muted">{r.resourceTypeName} in {r.locationName}</span>
             <span className="muted">{r.capacity ? `Up to ${r.capacity} ${r.capacity === 1 ? "person" : "people"}` : "No people limit"}</span>
             <button className="primary" onClick={() => setSelected(r)}>{searching ? `Book ${wanted.start} to ${wanted.end}` : "See the day and book"}</button>
           </div>
