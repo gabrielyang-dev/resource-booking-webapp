@@ -13,15 +13,21 @@ function defaultStart(date: string, timeZone: string): string {
   return fromMinutes(Math.min(23 * 60, Math.max(9 * 60, Math.ceil((now + 1) / 60) * 60)));
 }
 
+// A time someone searched for, carried into the booking form. Local date and HH:mm times.
+export type Wanted = { date: string; start: string; end: string; attendees: string };
+
+type Props = { resource: Resource; wanted?: Wanted; onBack: () => void };
+
 // One resource: its day as a timeline and a form to book it. Times are in the location's time zone.
-export function ResourcePage({ resource, onBack }: { resource: Resource; onBack: () => void }) {
-  const firstDay = weekdayFrom(todayIn(resource.timeZone));
+export function ResourcePage({ resource, wanted, onBack }: Props) {
+  const firstDay = wanted?.date ?? weekdayFrom(todayIn(resource.timeZone));
+  const firstStart = wanted?.start ?? defaultStart(firstDay, resource.timeZone);
   const [date, setDate] = useState(firstDay);
   const [bookings, setBookings] = useState<ResourceBooking[]>([]);
   const [rules, setRules] = useState<Rule[]>([]);
-  const [startTime, setStartTime] = useState(defaultStart(firstDay, resource.timeZone));
-  const [endTime, setEndTime] = useState(fromMinutes(toMinutes(defaultStart(firstDay, resource.timeZone)) + 60));
-  const [attendees, setAttendees] = useState("");
+  const [startTime, setStartTime] = useState(firstStart);
+  const [endTime, setEndTime] = useState(wanted?.end ?? fromMinutes(toMinutes(firstStart) + 60));
+  const [attendees, setAttendees] = useState(wanted?.attendees ?? "");
   const [errors, setErrors] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [alternatives, setAlternatives] = useState<Alternative[]>([]);

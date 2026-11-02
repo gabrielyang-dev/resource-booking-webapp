@@ -1,6 +1,7 @@
 using Booking.Api.Abstractions;
 using Booking.Api.Errors;
 using Booking.Api.Features.AddOns;
+using Booking.Api.Features.BookingIntents;
 using Booking.Api.Features.Bookings;
 using Booking.Api.Features.Catalog;
 using Booking.Api.Features.Demo;
@@ -44,6 +45,13 @@ builder.Services.AddScoped<ResourcesManager>();
 builder.Services.AddScoped<BookingManager>();
 builder.Services.AddScoped<BookingJudge>();
 builder.Services.AddScoped<AddOnsManager>();
+builder.Services.AddScoped<BookingIntentsManager>();
+
+// Natural-language search is on only when an OpenAI key is configured (OpenAI__ApiKey); the model is OpenAI:Model.
+if (!string.IsNullOrWhiteSpace(builder.Configuration["OpenAI:ApiKey"]))
+{
+    builder.Services.AddHttpClient<IBookingIntentParser, OpenAiBookingIntentParser>();
+}
 builder.Services.AddScoped<RulesManager>();
 builder.Services.AddScoped<InsightsManager>();
 

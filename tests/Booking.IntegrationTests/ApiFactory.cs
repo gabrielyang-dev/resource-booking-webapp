@@ -30,6 +30,7 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.ConfigureServices(services =>
         {
             services.AddSingleton<IClock>(Clock);
+            services.AddSingleton<IBookingIntentParser, FakeBookingIntentParser>();
         });
     }
 
