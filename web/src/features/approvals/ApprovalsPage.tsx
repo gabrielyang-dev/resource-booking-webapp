@@ -46,7 +46,7 @@ export function ApprovalsPage() {
   return (
     <section>
       <h2>Approvals</h2>
-      <p className="muted">Some resources, like the pool car, need someone to say yes. Requests still hold the slot while they wait, and expire if nobody decides before they start.</p>
+      <p className="subtitle">Some resources, like the pool car, need someone to say yes. Requests still hold the slot while they wait, and expire if nobody decides before they start.</p>
       <Messages errors={errors} success={message} />
       {waiting.length === 0 ? <p className="empty">Nothing is waiting for you.</p> : (
         <table>

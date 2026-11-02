@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { api, describeError, AddOn, Alternative, ApiError, Booking, Paged, Resource, ResourceBooking } from "../../api";
 import { dayName, dayRange, formatDate, formatTime, fromMinutes, localToIso, todayIn, toMinutes, weekdayFrom } from "../../time";
 import { Messages } from "../../ui";
@@ -28,6 +28,8 @@ export function ResourcePage({ resource, wanted, onBack }: Props) {
   const [startTime, setStartTime] = useState(firstStart);
   const [endTime, setEndTime] = useState(wanted?.end ?? fromMinutes(toMinutes(firstStart) + 60));
   const [attendees, setAttendees] = useState(wanted?.attendees ?? "");
+  // True once a time came from a search or the person changed it: then we never move it for them.
+  const touched = useRef(wanted !== undefined);
   const [errors, setErrors] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [alternatives, setAlternatives] = useState<Alternative[]>([]);
@@ -52,9 +54,26 @@ export function ResourcePage({ resource, wanted, onBack }: Props) {
   async function loadDay() {
     const { from, to } = dayRange(date, resource.timeZone);
     try {
-      setBookings(await api<ResourceBooking[]>("GET", `/api/resources/${resource.id}/bookings?from=${from}&to=${to}`));
+      const day = await api<ResourceBooking[]>("GET", `/api/resources/${resource.id}/bookings?from=${from}&to=${to}`);
+      setBookings(day);
+      if (!touched.current) moveToFirstFreeHour(day);
     } catch (error) {
       setErrors(describeError(error));
+    }
+  }
+
+  // On arrival (no time searched or picked yet), start the selection on the first free whole hour
+  // from the default start, so the page opens on something bookable rather than a clash.
+  function moveToFirstFreeHour(day: ResourceBooking[]) {
+    const taken = day.map((b) => ({ from: Date.parse(b.start), to: Date.parse(b.end) }));
+    for (let minutes = toMinutes(firstStart); minutes + 60 <= 20 * 60; minutes += 60) {
+      const start = Date.parse(localToIso(date, fromMinutes(minutes), resource.timeZone));
+      const end = start + 60 * 60 * 1000;
+      if (!taken.some((t) => t.from < end && start < t.to)) {
+        setStartTime(fromMinutes(minutes));
+        setEndTime(fromMinutes(minutes + 60));
+        return;
+      }
     }
   }
 
@@ -66,6 +85,7 @@ export function ResourcePage({ resource, wanted, onBack }: Props) {
 
   // A click on the timeline keeps the booking's length and moves its start.
   function pickStart(start: string) {
+    touched.current = true;
     const length = Math.max(15, toMinutes(endTime) - toMinutes(startTime));
     setStartTime(start);
     setEndTime(fromMinutes(toMinutes(start) + length));
@@ -105,24 +125,33 @@ export function ResourcePage({ resource, wanted, onBack }: Props) {
 
   return (
     <section>
-      <p><button className="link" onClick={onBack}>← All resources</button></p>
+      <p><button className="link" onClick={onBack}>Back to all resources</button></p>
       <h2>{resource.name}</h2>
-      <p className="muted">
-        {resource.resourceTypeName} · {resource.locationName} · {resource.capacity ? `up to ${resource.capacity} people` : "no people limit"} · times in {resource.timeZone}
-        {hoursRule && ` · open ${hoursRule.opens} to ${hoursRule.closes}, ${hoursRule.days?.join(" ")}`}
-        {resource.approverId && " · bookings need approval"}
+      <p className="subtitle">
+        {resource.resourceTypeName} in {resource.locationName}, {resource.capacity ? `for up to ${resource.capacity} ${resource.capacity === 1 ? "person" : "people"}` : "with no people limit"}.
+        {hoursRule && ` Open ${hoursRule.opens} to ${hoursRule.closes}, ${hoursRule.days?.join(", ")}.`}
+        {resource.approverId && " Bookings need approval."}
+        {` Times are ${resource.timeZone}.`}
       </p>
 
       <div className="card">
+        <label style={{ marginBottom: "0.25rem" }}>Day
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+        </label>
+        <DayTimeline date={date} timeZone={resource.timeZone} bookings={bookings} openHours={openHours}
+          typeName={resource.resourceTypeName} selectionStart={startTime} selectionEnd={endTime} onPick={pickStart} />
+        <p className="muted" style={{ margin: "0 0 1rem", fontSize: "0.9rem" }}>
+          {openHours === "closed" ? `${resource.name} is closed on this day. ` : ""}
+          {bookings.length === 0 ? "Nothing is booked yet. " : `${bookings.length} booking${bookings.length === 1 ? "" : "s"} this day. `}
+          Click a free spot to move your booking there.
+        </p>
+
         <form onSubmit={book} className="row">
-          <label>Day
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
-          </label>
           <label>Start
-            <input type="time" step={900} value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
+            <input type="time" step={900} value={startTime} onChange={(e) => { touched.current = true; setStartTime(e.target.value); }} required />
           </label>
           <label>End
-            <input type="time" step={900} value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
+            <input type="time" step={900} value={endTime} onChange={(e) => { touched.current = true; setEndTime(e.target.value); }} required />
           </label>
           <label>Attendees
             <input type="number" min={1} value={attendees} placeholder="optional" onChange={(e) => setAttendees(e.target.value)} style={{ width: "6rem" }} />
@@ -134,21 +163,13 @@ export function ResourcePage({ resource, wanted, onBack }: Props) {
             <span className="muted" style={{ alignSelf: "center" }}>Order with it:</span>
             {addOns.map((a) => (
               <label key={a.id} title={`Order ${Math.round(a.leadTimeMinutes / 60)} hours ahead; for bookings starting ${a.availableFrom} to ${a.availableUntil}`}>
-                {a.name} <span>(needs {a.leadTimeMinutes >= 60 ? `${Math.round(a.leadTimeMinutes / 60)} h` : `${a.leadTimeMinutes} min`} notice, {a.availableFrom}–{a.availableUntil})</span>
+                {a.name} <span>(order {a.leadTimeMinutes >= 60 ? `${Math.round(a.leadTimeMinutes / 60)} hours` : `${a.leadTimeMinutes} minutes`} ahead, served {a.availableFrom} to {a.availableUntil})</span>
                 <input type="number" min={0} placeholder="0" value={quantities[a.id] ?? ""} style={{ width: "6rem" }}
                   onChange={(e) => setQuantities({ ...quantities, [a.id]: e.target.value })} />
               </label>
             ))}
           </div>
         )}
-
-        <DayTimeline date={date} timeZone={resource.timeZone} bookings={bookings} openHours={openHours}
-          selectionStart={startTime} selectionEnd={endTime} onPick={pickStart} />
-        <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>
-          {openHours === "closed" ? `${resource.name} is closed on this day. ` : ""}
-          {bookings.length === 0 ? "Nothing is booked yet. " : `${bookings.length} booking${bookings.length === 1 ? "" : "s"} this day. `}
-          Click a free spot on the bar to move your booking there.
-        </p>
 
         <Messages errors={errors} success={message} />
         {alternatives.length > 0 && (

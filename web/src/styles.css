@@ -1,22 +1,25 @@
-/* One hand-written stylesheet. Element defaults style every page; the few classes below add layout. */
+/* "Building wayfinding": the look of office signage, directory boards and room door plates.
+   One hand-written stylesheet. Element defaults style every page; a few classes add layout.
+   Signal yellow is used in one place only: "now" and your own selection. */
 
 :root {
-  --ink: #1d2433;
-  --muted: #5f6b7a;
-  --line: #dde2ea;
-  --surface: #ffffff;
-  --page: #f4f6fa;
-  --brand: #2f5fd0;
-  --brand-dark: #234aa6;
-  --danger: #b42318;
-  --danger-bg: #fdecea;
-  --ok: #18794e;
-  --ok-bg: #e7f6ee;
-  --warn-bg: #fff6e0;
-  --radius: 8px;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --whiteboard: #f3f5f2;   /* page */
+  --surface: #ffffff;      /* plates and tables */
+  --ink: #1b2430;          /* text, borders that matter */
+  --ink-soft: #566170;     /* secondary text */
+  --line: #d9ded8;         /* quiet dividers */
+  --signal: #ffc21a;       /* now, and your selection */
+  --free: #1f7a4d;
+  --free-bg: #e4f2ea;
+  --taken: #c2362b;
+  --taken-bg: #fbe9e7;
+  --pending-bg: #fff4d1;
+  --radius: 6px;
+  font-family: "Atkinson Hyperlegible", system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.45;
   color: var(--ink);
-  background: var(--page);
+  background: var(--whiteboard);
 }
 
 body {
@@ -24,105 +27,137 @@ body {
 }
 
 h1, h2, h3 {
-  line-height: 1.2;
+  line-height: 1.15;
+  font-weight: 700;
 }
 
+/* A page title reads like the name on a door: big, plain, close to its subtitle. */
 h2 {
-  margin: 0 0 0.75rem;
-  font-size: 1.5rem;
+  margin: 0 0 0.25rem;
+  font-size: 2rem;
+  letter-spacing: -0.01em;
 }
 
 h3 {
-  margin: 1.5rem 0 0.5rem;
-  font-size: 1.1rem;
-}
-
-/* ---------- Layout ---------- */
-
-.topbar {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  padding: 0.75rem 2rem;
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
-  flex-wrap: wrap;
-}
-
-.topbar h1 {
-  margin: 0;
+  margin: 1.75rem 0 0.5rem;
   font-size: 1.15rem;
-  color: var(--brand);
 }
 
-.nav {
+p {
+  max-width: 70ch;
+}
+
+/* ---------- Layout: a directory rail and the page beside it ---------- */
+
+.shell {
+  display: grid;
+  grid-template-columns: 15rem 1fr;
+  min-height: 100vh;
+}
+
+.rail {
+  background: var(--ink);
+  color: #dfe4ea;
+  padding: 1.5rem 1rem;
   display: flex;
+  flex-direction: column;
   gap: 0.25rem;
-  flex-wrap: wrap;
-  flex: 1;
 }
 
-.nav button {
+.rail .place {
+  color: #fff;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0 0.5rem 1.5rem;
+}
+
+.rail .place small {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: #9aa5b3;
+}
+
+.rail button {
   background: none;
   border: none;
-  color: var(--muted);
-  padding: 0.45rem 0.75rem;
-}
-
-.nav button:hover {
-  background: var(--page);
-  color: var(--ink);
-}
-
-.nav button.active {
-  background: #e8eefc;
-  color: var(--brand-dark);
-  font-weight: 600;
-}
-
-.user-menu {
+  color: #dfe4ea;
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius);
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 0.75rem;
-  color: var(--muted);
 }
 
-.content {
-  max-width: 1100px;
-  margin: 1.5rem auto;
-  padding: 0 2rem;
+.rail button:hover:not(:disabled) {
+  background: #263243;
+  border: none;
+}
+
+/* The page you are on gets the signal colour, like "you are here" on a building map. */
+.rail button.active,
+.rail button.active:hover:not(:disabled) {
+  background: var(--signal);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.rail .group {
+  margin: 1.25rem 0.75rem 0.25rem;
+  font-size: 0.85rem;
+  color: #9aa5b3;
+}
+
+.rail .count {
+  background: var(--signal);
+  color: var(--ink);
+  border-radius: 999px;
+  min-width: 1.5rem;
+  padding: 0 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.rail button.active .count {
+  background: var(--ink);
+  color: var(--signal);
+}
+
+.rail .who {
+  margin-top: auto;
+  padding: 1rem 0.75rem 0;
+  border-top: 1px solid #334055;
+  font-size: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.rail .who button {
+  padding: 0.35rem 0;
+  color: #9aa5b3;
+}
+
+.main {
+  padding: 2rem 2.5rem 3rem;
+  max-width: 1280px;
 }
 
 .footer {
-  max-width: 1100px;
-  margin: 2rem auto;
-  padding: 0 2rem;
-  color: var(--muted);
+  margin-top: 3rem;
+  color: var(--ink-soft);
 }
 
-.card {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 1rem 1.25rem;
-  margin-bottom: 1rem;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 1rem;
-}
-
-.grid .card {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
+.subtitle {
+  color: var(--ink-soft);
+  margin: 0 0 1.5rem;
 }
 
 .muted {
-  color: var(--muted);
+  color: var(--ink-soft);
 }
 
 .row {
@@ -132,57 +167,92 @@ h3 {
   flex-wrap: wrap;
 }
 
+/* A plain panel for forms. */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+/* Resources as door plates: a coloured band says what kind of space it is. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.grid .card {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  border-top: 6px solid var(--type, var(--ink));
+}
+
+.grid .card strong {
+  font-size: 1.25rem;
+}
+
+.grid .card button {
+  margin-top: auto;
+}
+
 /* ---------- Controls ---------- */
 
 button {
   font: inherit;
   cursor: pointer;
-  border-radius: 6px;
-  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  border: 1px solid var(--ink);
   background: var(--surface);
   color: var(--ink);
-  padding: 0.4rem 0.8rem;
+  padding: 0.45rem 0.9rem;
 }
 
 button:hover:not(:disabled) {
-  border-color: #b9c2d0;
+  background: #e9ece8;
 }
 
 button:disabled {
   cursor: default;
-  opacity: 0.5;
+  opacity: 0.45;
 }
 
 button.primary,
 button[type="submit"] {
-  background: var(--brand);
-  border-color: var(--brand);
-  color: white;
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+  font-weight: 700;
 }
 
 button.primary:hover:not(:disabled),
 button[type="submit"]:hover:not(:disabled) {
-  background: var(--brand-dark);
+  background: #2c394b;
 }
 
 button.danger {
-  color: var(--danger);
+  color: var(--taken);
+  border-color: var(--taken);
 }
 
 button.link {
   border: none;
   background: none;
   padding: 0;
-  color: var(--brand);
-  font-weight: 600;
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 label {
   display: inline-flex;
   flex-direction: column;
   gap: 0.25rem;
-  font-size: 0.85rem;
-  color: var(--muted);
+  font-size: 0.9rem;
+  color: var(--ink-soft);
 }
 
 input,
@@ -190,27 +260,26 @@ select,
 textarea {
   font: inherit;
   color: var(--ink);
-  padding: 0.4rem 0.5rem;
-  border: 1px solid var(--line);
-  border-radius: 6px;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid #b9c0b8;
+  border-radius: var(--radius);
   background: var(--surface);
 }
 
 input:focus,
 select:focus,
 button:focus-visible {
-  outline: 2px solid #9db6f0;
+  outline: 3px solid var(--signal);
   outline-offset: 1px;
 }
 
-/* A checkbox label reads left to right, not stacked. */
 label:has(> input[type="checkbox"]) {
   flex-direction: row;
   align-items: center;
   color: var(--ink);
 }
 
-/* ---------- Tables ---------- */
+/* ---------- Tables: plain rows, like a directory listing ---------- */
 
 table {
   border-collapse: collapse;
@@ -218,22 +287,20 @@ table {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  overflow: hidden;
   margin-bottom: 1rem;
 }
 
 th {
   text-align: left;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--muted);
-  background: #f8f9fc;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  border-bottom: 2px solid var(--ink);
 }
 
 th,
 td {
-  padding: 0.55rem 0.75rem;
+  padding: 0.6rem 0.8rem;
   border-bottom: 1px solid var(--line);
 }
 
@@ -246,67 +313,65 @@ tr:last-child td {
 .error,
 .success,
 .notice {
-  padding: 0.6rem 0.9rem;
-  border-radius: 6px;
-  margin: 0.5rem 0;
+  padding: 0.7rem 1rem;
+  border-radius: var(--radius);
+  margin: 0.75rem 0;
+  border-left: 5px solid;
+  max-width: 70ch;
 }
 
 .error {
-  background: var(--danger-bg);
-  color: var(--danger);
+  background: var(--taken-bg);
+  border-color: var(--taken);
 }
 
 .success {
-  background: var(--ok-bg);
-  color: var(--ok);
+  background: var(--free-bg);
+  border-color: var(--free);
 }
 
 .notice {
-  background: var(--warn-bg);
+  background: var(--pending-bg);
+  border-color: var(--signal);
 }
 
 .empty {
-  padding: 1.25rem;
-  text-align: center;
-  color: var(--muted);
-  border: 1px dashed var(--line);
+  padding: 1.5rem;
+  color: var(--ink-soft);
+  border: 2px dashed var(--line);
   border-radius: var(--radius);
-  background: var(--surface);
+  max-width: none;
 }
 
 /* ---------- Status badges ---------- */
 
 .badge {
   display: inline-block;
-  padding: 0.1rem 0.5rem;
+  padding: 0.05rem 0.55rem;
   border-radius: 999px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  background: #eef0f4;
-  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  border: 1px solid currentColor;
 }
 
 .badge.Confirmed,
 .badge.CheckedIn {
-  background: #e8eefc;
-  color: var(--brand-dark);
+  color: var(--ink);
 }
 
 .badge.Completed {
-  background: var(--ok-bg);
-  color: var(--ok);
+  color: var(--free);
 }
 
 .badge.Pending {
-  background: var(--warn-bg);
-  color: #8a5a00;
+  color: #7a5600;
+  background: var(--pending-bg);
 }
 
 .badge.Cancelled,
 .badge.Rejected,
 .badge.Released {
-  background: var(--danger-bg);
-  color: var(--danger);
+  color: var(--taken);
 }
 
 /* ---------- Utilisation bar ---------- */
@@ -314,9 +379,9 @@ tr:last-child td {
 .bar {
   display: inline-block;
   width: 160px;
-  height: 10px;
-  background: #e5e9f0;
-  border-radius: 999px;
+  height: 12px;
+  background: #e3e7e2;
+  border-radius: 2px;
   overflow: hidden;
   vertical-align: middle;
   margin-right: 0.5rem;
@@ -325,34 +390,42 @@ tr:last-child td {
 .bar > span {
   display: block;
   height: 100%;
-  background: var(--brand);
+  background: var(--ink);
 }
 
-/* ---------- Day timeline ---------- */
+/* ---------- The day board: the one bold element ---------- */
 
 .timeline {
   position: relative;
-  height: 64px;
-  margin: 1.75rem 0 0.5rem;
+  height: 84px;
+  margin: 2.25rem 0 0.75rem;
   background: var(--surface);
-  border: 1px solid var(--line);
+  border: 2px solid var(--ink);
   border-radius: var(--radius);
-  cursor: pointer;
+  cursor: crosshair;
 }
 
-/* Hours outside opening hours are shaded. */
+/* A row on the office board: same bar, shorter, no frame of its own. */
+.timeline.compact {
+  height: 40px;
+  margin: 0;
+  border-width: 1px;
+  border-color: var(--line);
+}
+
 .timeline .closed {
   position: absolute;
   top: 0;
   bottom: 0;
-  background: repeating-linear-gradient(45deg, #f1f3f7, #f1f3f7 6px, #e8ebf1 6px, #e8ebf1 12px);
+  background: repeating-linear-gradient(135deg, #eceeeb, #eceeeb 5px, #e2e5e1 5px, #e2e5e1 10px);
 }
 
 .timeline .hour {
   position: absolute;
-  top: -1.4rem;
-  font-size: 0.75rem;
-  color: var(--muted);
+  top: -1.9rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
   transform: translateX(-50%);
 }
 
@@ -360,35 +433,135 @@ tr:last-child td {
   position: absolute;
   top: 0;
   bottom: 0;
-  border-left: 1px solid #eef0f4;
+  border-left: 1px solid #e6e9e5;
 }
 
 .timeline .block {
   position: absolute;
-  top: 8px;
-  bottom: 8px;
-  border-radius: 6px;
-  background: #c9d6f5;
-  border: 1px solid #9db0e4;
-  color: var(--brand-dark);
-  font-size: 0.75rem;
+  top: 10px;
+  bottom: 10px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--type, var(--ink)) 18%, white);
+  border-left: 4px solid var(--type, var(--ink));
+  color: var(--ink);
+  font-size: 0.85rem;
   padding: 2px 6px;
   overflow: hidden;
   white-space: nowrap;
   cursor: default;
 }
 
+.timeline.compact .block {
+  top: 5px;
+  bottom: 5px;
+  font-size: 0.75rem;
+}
+
+/* Your selection: a yellow plate, outlined in ink. Red when it lands on someone else's booking. */
 .timeline .selection {
   position: absolute;
   top: 4px;
   bottom: 4px;
-  border: 2px dashed var(--brand);
-  border-radius: 6px;
-  background: rgba(47, 95, 208, 0.08);
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--signal) 55%, transparent);
   pointer-events: none;
 }
 
 .timeline .selection.clash {
-  border-color: var(--danger);
-  background: rgba(180, 35, 24, 0.08);
+  border-color: var(--taken);
+  background: repeating-linear-gradient(135deg, rgba(194, 54, 43, 0.22), rgba(194, 54, 43, 0.22) 6px, transparent 6px, transparent 12px);
+}
+
+/* Now: a signal-yellow line with the time on it. */
+.timeline .now {
+  position: absolute;
+  top: -6px;
+  bottom: -6px;
+  width: 3px;
+  background: var(--signal);
+  box-shadow: 0 0 0 1px var(--ink);
+  pointer-events: none;
+}
+
+/* ---------- Office board on Home ---------- */
+
+.board {
+  display: grid;
+  grid-template-columns: 11rem 1fr;
+  gap: 0.6rem 1rem;
+  align-items: center;
+}
+
+.board .name {
+  border-left: 6px solid var(--type, var(--ink));
+  padding-left: 0.6rem;
+  line-height: 1.2;
+}
+
+.board .name button {
+  border: none;
+  background: none;
+  padding: 0;
+  font-weight: 700;
+  text-align: left;
+}
+
+.board .name small {
+  display: block;
+  color: var(--ink-soft);
+}
+
+.board .ruler {
+  position: relative;
+  height: 1.5rem;
+}
+
+.board .ruler span {
+  position: absolute;
+  transform: translateX(-50%);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Small screens: the rail becomes a top strip ---------- */
+
+@media (max-width: 760px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+
+  .rail {
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 0.75rem;
+  }
+
+  .rail .place,
+  .rail .group {
+    width: 100%;
+    margin: 0 0.5rem 0.5rem;
+  }
+
+  .rail .who {
+    width: 100%;
+    flex-direction: row;
+    border-top: none;
+    margin-top: 0.5rem;
+  }
+
+  .main {
+    padding: 1.25rem;
+  }
+
+  .board {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
 }

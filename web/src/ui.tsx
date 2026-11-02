@@ -26,3 +26,13 @@ export function Messages({ errors, success }: { errors: string[]; success?: stri
     </>
   );
 }
+
+// Each resource type gets its own signage colour, worked out from its name so it never changes.
+// Used as the CSS variable --type on door plates, timeline blocks and board rows.
+const typeColours = ["#3d6cb9", "#2e8b6f", "#8a6340", "#6b5bb5", "#1f8a9e", "#8a7a1f"];
+
+export function typeColour(typeName: string): string {
+  let hash = 0;
+  for (const letter of typeName) hash = (hash * 22 + letter.charCodeAt(0)) % 9973;
+  return typeColours[hash % typeColours.length];
+}

@@ -9,6 +9,7 @@ import { MyBookingsPage } from "./features/bookings/MyBookingsPage";
 import { InsightsPage } from "./features/insights/InsightsPage";
 import { ApprovalsPage } from "./features/approvals/ApprovalsPage";
 import { NotificationsPage } from "./features/notifications/NotificationsPage";
+import { OfficeTodayPage } from "./features/bookings/OfficeTodayPage";
 
 // No routing library: the view is just state.
 type View = "home" | "find" | "mine" | "approvals" | "notifications" | "users" | "catalogue" | "insights";
@@ -19,6 +20,8 @@ export function App() {
   const [view, setView] = useState<View>("home");
   const [notice, setNotice] = useState("");
   const [unread, setUnread] = useState(0);
+  // Bookings waiting for this user to approve.
+  const [waiting, setWaiting] = useState(0);
 
   function backToPicker() {
     setUser(null);
@@ -46,6 +49,9 @@ export function App() {
     api<{ unread: number }>("GET", "/api/notifications/summary")
       .then((summary) => setUnread(summary.unread))
       .catch(() => setUnread(0));
+    api<{ totalCount: number }>("GET", "/api/bookings/approvals?pageSize=1")
+      .then((page) => setWaiting(page.totalCount))
+      .catch(() => setWaiting(0));
   }, [user, view]);
 
   async function switchUser() {
@@ -76,85 +82,66 @@ export function App() {
     setUser(signedIn);
   }
 
-  // A nav button that shows which page you are on.
-  function navButton(target: View, label: string) {
+  // A rail item. The page you are on is marked; a count shows when something is waiting.
+  function navButton(target: View, label: string, count = 0) {
     return (
-      <button className={view === target ? "active" : ""} onClick={() => setView(target)}>{label}</button>
+      <button className={view === target ? "active" : ""} onClick={() => setView(target)} aria-current={view === target ? "page" : undefined}>
+        <span>{label}</span>
+        {count > 0 && <span className="count" aria-label={`${count} waiting`}>{count}</span>}
+      </button>
+    );
+  }
+
+  if (user === undefined) {
+    return <main className="main"><p className="muted">Loading...</p></main>;
+  }
+
+  if (user === null) {
+    return (
+      <main className="main">
+        {notice && <div className="notice">{notice}</div>}
+        <SignIn onSignedIn={handleSignedIn} />
+        <footer className="footer"><HealthStatus /></footer>
+      </main>
     );
   }
 
   return (
-    <>
-      <header className="topbar">
-        <h1>Resource booking</h1>
-        {user && (
+    <div className="shell">
+      <nav className="rail" aria-label="Main">
+        <div className="place">Resource booking<small>London office</small></div>
+        {navButton("home", "Office today")}
+        {navButton("find", "Find a resource")}
+        {navButton("mine", "My bookings")}
+        {navButton("approvals", "Approvals", waiting)}
+        {navButton("notifications", "Notifications", unread)}
+        {user.role === "Admin" && (
           <>
-            <nav className="nav">
-              {navButton("home", "Home")}
-              {navButton("find", "Find a resource")}
-              {navButton("mine", "My bookings")}
-              {navButton("approvals", "Approvals")}
-              {user.role === "Admin" && (
-                <>
-                  {navButton("insights", "Insights")}
-                  {navButton("catalogue", "Catalogue")}
-                  {navButton("users", "Users")}
-                </>
-              )}
-            </nav>
-            <div className="user-menu">
-              <button className={view === "notifications" ? "active" : ""} onClick={() => setView("notifications")} title="Notifications">
-                🔔 {unread > 0 ? <strong>{unread}</strong> : ""}
-              </button>
-              <span>{user.name} · {user.role}</span>
-              {user.role === "Admin" && <button onClick={resetDemoData}>Reset demo data</button>}
-              <button onClick={switchUser}>Switch user</button>
-            </div>
+            <div className="group">Admin</div>
+            {navButton("insights", "Insights")}
+            {navButton("catalogue", "Catalogue")}
+            {navButton("users", "Users")}
+            <button onClick={resetDemoData}>Reset demo data</button>
           </>
         )}
-      </header>
+        <div className="who">
+          <span>Signed in as <strong>{user.name}</strong></span>
+          <button onClick={switchUser}>Switch user</button>
+        </div>
+      </nav>
 
-      <main className="content">
+      <main className="main">
         {notice && <div className="notice">{notice}</div>}
-
-        {user === undefined && <p className="muted">Loading...</p>}
-        {user === null && <SignIn onSignedIn={handleSignedIn} />}
-        {user && view === "home" && (
-          <section>
-            <h2>Welcome, {user.name}</h2>
-            <div className="grid">
-              <div className="card">
-                <strong>Book something</strong>
-                <span className="muted">Rooms, desks, the pool car and equipment.</span>
-                <button className="primary" onClick={() => setView("find")}>Find a resource</button>
-              </div>
-              <div className="card">
-                <strong>Your bookings</strong>
-                <span className="muted">Change the time or cancel if plans change.</span>
-                <button onClick={() => setView("mine")}>My bookings</button>
-              </div>
-              {user.role === "Admin" && (
-                <div className="card">
-                  <strong>How space is used</strong>
-                  <span className="muted">Utilisation per resource and the full booking history.</span>
-                  <button onClick={() => setView("insights")}>Insights</button>
-                </div>
-              )}
-            </div>
-          </section>
-        )}
-        {user && view === "find" && <FindResourcePage />}
-        {user && view === "mine" && <MyBookingsPage />}
-        {user && view === "approvals" && <ApprovalsPage />}
-        {user && view === "notifications" && <NotificationsPage onRead={() => setUnread(0)} />}
-        {user && user.role === "Admin" && view === "users" && <UsersPage />}
-        {user && user.role === "Admin" && view === "catalogue" && <CataloguePage />}
-        {user && user.role === "Admin" && view === "insights" && <InsightsPage />}
+        {view === "home" && <OfficeTodayPage />}
+        {view === "find" && <FindResourcePage />}
+        {view === "mine" && <MyBookingsPage />}
+        {view === "approvals" && <ApprovalsPage />}
+        {view === "notifications" && <NotificationsPage onRead={() => setUnread(0)} />}
+        {user.role === "Admin" && view === "users" && <UsersPage />}
+        {user.role === "Admin" && view === "catalogue" && <CataloguePage />}
+        {user.role === "Admin" && view === "insights" && <InsightsPage />}
+        <footer className="footer"><HealthStatus /></footer>
       </main>
-
-      <footer className="footer">
-        <HealthStatus />
-      </footer>
-    </>
+    </div>
   );
 }
