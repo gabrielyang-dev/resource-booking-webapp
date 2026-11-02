@@ -52,5 +52,30 @@ public static class UtilisationCalculator
         return hours;
     }
 
+    // Hours of bookings someone checked in to (still running or finished), clipped to the period.
+    // Next to booked hours, the gap is time held but not used.
+    public static double CheckedInHours(IEnumerable<(TimeRange Range, BookingStatus Status, DateTime? CheckedInAt)> bookings, TimeRange period) =>
+        HoursInside(bookings.Where(b => b.CheckedInAt is not null
+            && b.Status is BookingStatus.CheckedIn or BookingStatus.Completed).Select(b => b.Range), period);
+
+    // Hours of bookings released because nobody checked in: no-shows the app gave back to others.
+    public static double NoShowHours(IEnumerable<(TimeRange Range, BookingStatus Status, DateTime? CheckedInAt)> bookings, TimeRange period) =>
+        HoursInside(bookings.Where(b => b.Status == BookingStatus.Released).Select(b => b.Range), period);
+
+    private static double HoursInside(IEnumerable<TimeRange> ranges, TimeRange period)
+    {
+        double hours = 0;
+        foreach (var range in ranges)
+        {
+            var start = range.Start > period.Start ? range.Start : period.Start;
+            var end = range.End < period.End ? range.End : period.End;
+            if (end > start)
+            {
+                hours += (end - start).TotalHours;
+            }
+        }
+        return hours;
+    }
+
     public static double Ratio(double booked, double open) => open <= 0 ? 0 : booked / open;
 }

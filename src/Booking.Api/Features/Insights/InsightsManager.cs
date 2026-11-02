@@ -50,10 +50,12 @@ public class InsightsManager
         var ids = resources.Select(r => r.Id).ToList();
         var windowStart = first.AddDays(-1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
         var windowEnd = last.AddDays(2).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        // Released ones are loaded too: they count as no-show hours, never as booked.
         var bookings = await _db.Bookings.AsNoTracking()
-            .Where(b => ids.Contains(b.ResourceId) && UtilisationCalculator.CountedStatuses.Contains(b.Status)
+            .Where(b => ids.Contains(b.ResourceId)
+                && (UtilisationCalculator.CountedStatuses.Contains(b.Status) || b.Status == BookingStatus.Released)
                 && b.Start < windowEnd && windowStart < b.End)
-            .Select(b => new { b.ResourceId, b.Start, b.End, b.Status })
+            .Select(b => new { b.ResourceId, b.Start, b.End, b.Status, b.CheckedInAt })
             .ToListAsync();
 
         var rows = new List<ResourceUtilisation>();
@@ -66,18 +68,21 @@ public class InsightsManager
                 ? RuleSettings.Parse<OpeningHoursSettings>(json)
                 : null;
 
-            var booked = UtilisationCalculator.BookedHours(
-                bookings.Where(b => b.ResourceId == resource.Id).Select(b => (new TimeRange(b.Start, b.End), b.Status)),
-                period);
+            var mine = bookings.Where(b => b.ResourceId == resource.Id)
+                .Select(b => (Range: new TimeRange(b.Start, b.End), b.Status, b.CheckedInAt)).ToList();
+            var booked = UtilisationCalculator.BookedHours(mine.Select(b => (b.Range, b.Status)), period);
+            var checkedIn = UtilisationCalculator.CheckedInHours(mine, period);
+            var noShow = UtilisationCalculator.NoShowHours(mine, period);
             var open = UtilisationCalculator.OpenHours(first, last, zone, openingHours);
             rows.Add(new ResourceUtilisation(resource.Id, resource.Name, resource.ResourceTypeId, resource.ResourceType.Name,
-                resource.Location.Name, Math.Round(booked, 2), Math.Round(open, 2), UtilisationCalculator.Ratio(booked, open)));
+                resource.Location.Name, Math.Round(booked, 2), Math.Round(checkedIn, 2), Math.Round(noShow, 2), Math.Round(open, 2),
+                UtilisationCalculator.Ratio(booked, open)));
         }
 
         var types = rows
             .GroupBy(r => new { r.ResourceTypeId, r.ResourceTypeName })
             .Select(g => new TypeUtilisation(g.Key.ResourceTypeId, g.Key.ResourceTypeName,
-                g.Sum(r => r.BookedHours), g.Sum(r => r.OpenHours),
+                g.Sum(r => r.BookedHours), g.Sum(r => r.CheckedInHours), g.Sum(r => r.NoShowHours), g.Sum(r => r.OpenHours),
                 UtilisationCalculator.Ratio(g.Sum(r => r.BookedHours), g.Sum(r => r.OpenHours))))
             .OrderBy(t => t.Name)
             .ToList();

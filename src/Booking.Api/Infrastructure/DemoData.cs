@@ -52,6 +52,13 @@ public static class DemoData
             await db.SaveChangesAsync();
         }
 
+        // Check-in came later still: seed it once, when no check-in rule exists anywhere.
+        if (!await db.RuleSettings.AnyAsync(s => s.Kind == RuleKind.CheckIn) && await db.ResourceTypes.AnyAsync(t => t.Id == MeetingRoomTypeId))
+        {
+            db.RuleSettings.Add(CheckInForMeetingRooms());
+            await db.SaveChangesAsync();
+        }
+
         // Add-ons came later too: the seed location with no add-ons gets the catering ones.
         if (!await db.AddOns.AnyAsync() && await db.Locations.AnyAsync(l => l.Id == LondonId))
         {
@@ -158,11 +165,16 @@ public static class DemoData
             TypeRule(MeetingRoomTypeId, RuleKind.OpeningHours, new OpeningHoursSettings("08:00", "18:00", weekdays)),
             TypeRule(MeetingRoomTypeId, RuleKind.MaxDuration, new MaxDurationSettings(120)),
             TypeRule(MeetingRoomTypeId, RuleKind.BookingWindow, new BookingWindowSettings(0, 60)),
+            CheckInForMeetingRooms(),
             TypeRule(DeskTypeId, RuleKind.OpeningHours, new OpeningHoursSettings("07:00", "20:00", weekdays)),
             TypeRule(DeskTypeId, RuleKind.DailyQuota, new DailyQuotaSettings(480)),
             TypeRule(CarTypeId, RuleKind.MaxDuration, new MaxDurationSettings(600)),
             TypeRule(CarTypeId, RuleKind.BookingWindow, new BookingWindowSettings(60, 30)));
     }
+
+    // Meeting rooms need a check-in from 15 minutes before; no-shows are released 15 minutes after the start.
+    private static RuleSetting CheckInForMeetingRooms() =>
+        TypeRule(MeetingRoomTypeId, RuleKind.CheckIn, new CheckInSettings(Required: true, OpensMinutesBefore: 15, ReleaseAfterMinutes: 15));
 
     private static RuleSetting TypeRule<T>(Guid typeId, RuleKind kind, T settings) =>
         new() { Id = Guid.NewGuid(), ResourceTypeId = typeId, Kind = kind, Settings = RuleSettings.ToJson(settings) };

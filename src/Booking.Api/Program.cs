@@ -64,12 +64,14 @@ builder.Services.AddSingleton<IBookingRule, OpeningHoursRule>();
 builder.Services.AddSingleton<IBookingRule, MaxDurationRule>();
 builder.Services.AddSingleton<IBookingRule, BookingWindowRule>();
 builder.Services.AddSingleton<IBookingRule, DailyQuotaRule>();
+builder.Services.AddSingleton<IBookingRule, CheckInRule>();
 builder.Services.AddSingleton<RuleEngine>();
 
 // Moves bookings that have ended to Completed. Off in the integration tests, which call it directly.
 if (builder.Configuration.GetValue("Jobs:Enabled", true))
 {
     builder.Services.AddHostedService<CompleteEndedBookings>();
+    builder.Services.AddHostedService<ReleaseNoShows>();
 }
 builder.Services.AddScoped<DemoManager>();
 

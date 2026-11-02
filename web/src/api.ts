@@ -35,6 +35,7 @@ export type Booking = {
   attendees: number | null;
   version: number;
   addOns: AddOnOrder[];
+  checkedInAt: string | null;
   createdAt: string;
 };
 export type AddOnOrder = { id: string; addOnId: string; name: string; quantity: number; status: string };

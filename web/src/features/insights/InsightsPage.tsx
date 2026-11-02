@@ -9,10 +9,14 @@ type ResourceUtilisation = {
   resourceTypeName: string;
   locationName: string;
   bookedHours: number;
+  checkedInHours: number;
+  noShowHours: number;
   openHours: number;
   utilisation: number;
 };
-type TypeUtilisation = { resourceTypeId: string; name: string; bookedHours: number; openHours: number; utilisation: number };
+type TypeUtilisation = {
+  resourceTypeId: string; name: string; bookedHours: number; checkedInHours: number; noShowHours: number; openHours: number; utilisation: number;
+};
 type Utilisation = { from: string; to: string; resources: ResourceUtilisation[]; types: TypeUtilisation[] };
 
 const statuses = ["Pending", "Confirmed", "CheckedIn", "Completed", "Cancelled", "Rejected", "Released"];
@@ -100,7 +104,7 @@ export function InsightsPage() {
       {errors.map((m) => <p key={m} className="error">{m}</p>)}
 
       <h3>Utilisation</h3>
-      <p>Booked hours divided by open hours. Open hours follow each resource's opening-hours rule, or 24 hours a day if it has none.</p>
+      <p className="muted">Utilisation is booked hours divided by open hours (each resource's opening-hours rule, or 24 hours a day). Checked-in hours show what was really used; no-show hours were released because nobody turned up.</p>
       <div className="row" style={{ marginBottom: "0.75rem" }}>
         <label>From <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
         <label>To <input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
@@ -112,13 +116,15 @@ export function InsightsPage() {
         <>
           <table cellPadding={6}>
             <thead>
-              <tr><th align="left">Resource type</th><th align="right">Booked h</th><th align="right">Open h</th><th align="left">Utilisation</th></tr>
+              <tr><th align="left">Resource type</th><th align="right">Booked h</th><th align="right" title="Hours someone actually checked in to">Checked in h</th><th align="right" title="Bookings released because nobody checked in">No-show h</th><th align="right">Open h</th><th align="left">Utilisation</th></tr>
             </thead>
             <tbody>
               {utilisation.types.map((t) => (
                 <tr key={t.resourceTypeId}>
                   <td><strong>{t.name}</strong></td>
                   <td align="right">{t.bookedHours}</td>
+                  <td align="right">{t.checkedInHours}</td>
+                  <td align="right">{t.noShowHours}</td>
                   <td align="right">{t.openHours}</td>
                   <td><Bar fraction={t.utilisation} /> {percent(t.utilisation)}</td>
                 </tr>
@@ -127,7 +133,7 @@ export function InsightsPage() {
           </table>
           <table cellPadding={6}>
             <thead>
-              <tr><th align="left">Resource</th><th align="left">Type</th><th align="right">Booked h</th><th align="right">Open h</th><th align="left">Utilisation</th></tr>
+              <tr><th align="left">Resource</th><th align="left">Type</th><th align="right">Booked h</th><th align="right" title="Hours someone actually checked in to">Checked in h</th><th align="right" title="Bookings released because nobody checked in">No-show h</th><th align="right">Open h</th><th align="left">Utilisation</th></tr>
             </thead>
             <tbody>
               {utilisation.resources.map((r) => (
@@ -135,6 +141,8 @@ export function InsightsPage() {
                   <td>{r.resourceName}</td>
                   <td>{r.resourceTypeName}</td>
                   <td align="right">{r.bookedHours}</td>
+                  <td align="right">{r.checkedInHours}</td>
+                  <td align="right">{r.noShowHours}</td>
                   <td align="right">{r.openHours}</td>
                   <td><Bar fraction={r.utilisation} /> {percent(r.utilisation)}</td>
                 </tr>

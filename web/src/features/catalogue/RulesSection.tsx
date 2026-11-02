@@ -1,22 +1,24 @@
 import { useEffect, useState } from "react";
 import { api, describeError, Paged, Resource, ResourceType } from "../../api";
 
-type Kind = "OpeningHours" | "MaxDuration" | "BookingWindow" | "DailyQuota";
+type Kind = "OpeningHours" | "MaxDuration" | "BookingWindow" | "DailyQuota" | "CheckIn";
 type Rule = { kind: Kind; settings: Record<string, unknown>; source: string };
 
-const kinds: Kind[] = ["OpeningHours", "MaxDuration", "BookingWindow", "DailyQuota"];
+const kinds: Kind[] = ["OpeningHours", "MaxDuration", "BookingWindow", "DailyQuota", "CheckIn"];
 const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const labels: Record<Kind, string> = {
   OpeningHours: "Opening hours",
   MaxDuration: "Maximum duration",
   BookingWindow: "Booking window",
   DailyQuota: "Daily quota per person",
+  CheckIn: "Check-in",
 };
 const defaults: Record<Kind, Record<string, unknown>> = {
   OpeningHours: { opens: "08:00", closes: "18:00", days: ["Mon", "Tue", "Wed", "Thu", "Fri"] },
   MaxDuration: { maxMinutes: 120 },
   BookingWindow: { minNoticeMinutes: 0, maxDaysAhead: 60 },
   DailyQuota: { maxMinutesPerDay: 480 },
+  CheckIn: { required: true, opensMinutesBefore: 15, releaseAfterMinutes: 15 },
 };
 
 // Admin: rules on a resource type (defaults for its resources) or on one resource (overrides).
@@ -117,7 +119,14 @@ export function RulesSection() {
     }
     if (kind === "MaxDuration") return number("maxMinutes", "Minutes");
     if (kind === "BookingWindow") return <>{number("minNoticeMinutes", "Notice (minutes)")} {number("maxDaysAhead", "Days ahead")}</>;
-    return number("maxMinutesPerDay", "Minutes per day");
+    if (kind === "DailyQuota") return number("maxMinutesPerDay", "Minutes per day");
+    return (
+      <>
+        <label><input type="checkbox" disabled={!editable} checked={settings.required === true}
+          onChange={(e) => setField(kind, "required", e.target.checked)} /> Required (release no-shows)</label>{" "}
+        {number("opensMinutesBefore", "Opens (minutes before)")} {number("releaseAfterMinutes", "Release after (minutes)")}
+      </>
+    );
   }
 
   return (

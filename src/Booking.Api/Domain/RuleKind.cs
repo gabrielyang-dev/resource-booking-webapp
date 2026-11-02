@@ -7,4 +7,5 @@ public enum RuleKind
     MaxDuration,
     BookingWindow,
     DailyQuota,
+    CheckIn,
 }

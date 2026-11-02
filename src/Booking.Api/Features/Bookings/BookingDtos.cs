@@ -37,13 +37,14 @@ public record BookingResponse(
     int? Attendees,
     int Version,
     DateTime CreatedAt,
+    DateTime? CheckedInAt,
     IReadOnlyList<AddOnOrderResponse> AddOns)
 {
     // The booking must have been loaded with its Resource (and Location) and Owner,
     // and with AddOnOrders (and their AddOn) where the orders should be shown.
     public static BookingResponse From(Domain.Booking b) => new(
         b.Id, b.ResourceId, b.Resource.Name, b.Resource.Location.Name, b.Resource.Location.TimeZone,
-        b.OwnerId, b.Owner.Name, b.Start, b.End, b.Status.ToString(), b.Attendees, b.Version, b.CreatedAt,
+        b.OwnerId, b.Owner.Name, b.Start, b.End, b.Status.ToString(), b.Attendees, b.Version, b.CreatedAt, b.CheckedInAt,
         b.AddOnOrders.OrderBy(o => o.AddOn.Name).Select(AddOnOrderResponse.From).ToList());
 }
 
