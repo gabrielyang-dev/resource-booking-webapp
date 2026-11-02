@@ -91,7 +91,10 @@ export function ResourcePage({ resource, wanted, onBack }: Props) {
         addOns: resourceId === resource.id ? ordered : [],
       });
       const extras = created.addOns.length > 0 ? ` With ${created.addOns.map((o) => `${o.quantity} × ${o.name}`).join(", ")}.` : "";
-      setMessage(`Booked ${created.resourceName} on ${formatDate(created.start, resource.timeZone)}, ${formatTime(created.start, resource.timeZone)} to ${formatTime(created.end, resource.timeZone)}.${extras} It's in My bookings.`);
+      const when = `${formatDate(created.start, resource.timeZone)}, ${formatTime(created.start, resource.timeZone)} to ${formatTime(created.end, resource.timeZone)}`;
+      setMessage(created.status === "Pending"
+        ? `Requested ${created.resourceName} on ${when}.${extras} It needs approval: it holds the slot meanwhile, and you'll get a notification.`
+        : `Booked ${created.resourceName} on ${when}.${extras} It's in My bookings.`);
       setQuantities({});
     } catch (error) {
       setErrors(describeError(error));
@@ -107,6 +110,7 @@ export function ResourcePage({ resource, wanted, onBack }: Props) {
       <p className="muted">
         {resource.resourceTypeName} · {resource.locationName} · {resource.capacity ? `up to ${resource.capacity} people` : "no people limit"} · times in {resource.timeZone}
         {hoursRule && ` · open ${hoursRule.opens} to ${hoursRule.closes}, ${hoursRule.days?.join(" ")}`}
+        {resource.approverId && " · bookings need approval"}
       </p>
 
       <div className="card">

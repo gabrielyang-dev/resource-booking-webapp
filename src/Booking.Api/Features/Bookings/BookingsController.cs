@@ -44,6 +44,18 @@ public class BookingsController : ControllerBase
     public async Task<BookingResponse> Reschedule(Guid id, RescheduleRequest request) =>
         await _bookings.RescheduleAsync(id, _currentUser.Id, IsAdmin, request);
 
+    // Pending bookings waiting for the signed-in user to decide.
+    [HttpGet("api/bookings/approvals")]
+    public async Task<PagedResponse<BookingResponse>> Approvals([FromQuery] int page = 1, [FromQuery] int pageSize = 20) =>
+        await _bookings.ListApprovalsAsync(_currentUser.Id, page, pageSize);
+
+    [HttpPost("api/bookings/{id:guid}/approve")]
+    public async Task<BookingResponse> Approve(Guid id) => await _bookings.ApproveAsync(id, _currentUser.Id);
+
+    [HttpPost("api/bookings/{id:guid}/reject")]
+    public async Task<BookingResponse> Reject(Guid id, RejectRequest request) =>
+        await _bookings.RejectAsync(id, _currentUser.Id, request.Reason);
+
     [HttpPost("api/bookings/{id:guid}/check-in")]
     public async Task<BookingResponse> CheckIn(Guid id) =>
         await _bookings.CheckInAsync(id, _currentUser.Id, IsAdmin);

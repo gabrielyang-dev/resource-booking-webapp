@@ -24,13 +24,15 @@ public class BookingManager
     private readonly IClock _clock;
     private readonly BookingJudge _judge;
     private readonly RulesManager _rules;
+    private readonly INotifier _notifier;
 
-    public BookingManager(AppDbContext db, IClock clock, BookingJudge judge, RulesManager rules)
+    public BookingManager(AppDbContext db, IClock clock, BookingJudge judge, RulesManager rules, INotifier notifier)
     {
         _db = db;
         _clock = clock;
         _judge = judge;
         _rules = rules;
+        _notifier = notifier;
     }
 
     // Admins may book for someone else (request.OwnerId); the rules are then judged for that person.
@@ -72,13 +74,17 @@ public class BookingManager
             OwnerId = ownerId,
             Start = range.Start,
             End = range.End,
-            Status = BookingStatus.Confirmed,
+            Status = NeedsApproval(resource, ownerId) ? BookingStatus.Pending : BookingStatus.Confirmed,
             Attendees = request.Attendees,
             IdempotencyKey = key,
             CreatedAt = _clock.UtcNow,
             AddOnOrders = addOns.Select(NewOrder).ToList(),
         };
         _db.Bookings.Add(booking);
+        if (booking.Status == BookingStatus.Pending)
+        {
+            await AskApproverAsync(resource, ownerId, range);
+        }
 
         try
         {
@@ -168,6 +174,16 @@ public class BookingManager
         booking.Start = range.Start;
         booking.End = range.End;
         booking.Attendees = request.Attendees;
+        // A moved booking on a resource that needs approval needs it again; moved off one, it no longer does.
+        if (booking.Status != BookingStatus.CheckedIn && NeedsApproval(resource, booking.OwnerId))
+        {
+            booking.Status = BookingStatus.Pending;
+            await AskApproverAsync(resource, booking.OwnerId, range);
+        }
+        else if (booking.Status == BookingStatus.Pending)
+        {
+            booking.Status = BookingStatus.Confirmed;
+        }
         if (!keepOrders)
         {
             // A new list replaces the orders not yet delivered; the old ones stay as Cancelled for the record.
@@ -243,6 +259,125 @@ public class BookingManager
         var free = await _judge.FindAvailableAsync(locationId, resourceTypeId, userId, range, attendees);
         var items = free.Skip((page - 1) * pageSize).Take(pageSize).Select(ResourceResponse.From).ToList();
         return new PagedResponse<ResourceResponse>(items, page, pageSize, free.Count);
+    }
+
+    // Pending bookings on the resources this user approves, soonest first.
+    public Task<PagedResponse<BookingResponse>> ListApprovalsAsync(Guid approverId, int page, int pageSize)
+    {
+        var query = WithDetails().AsNoTracking()
+            .Where(b => b.Status == BookingStatus.Pending && b.Resource.ApproverId == approverId)
+            .OrderBy(b => b.Start).ThenBy(b => b.Id);
+        return Paging.ToPageAsync(query, page, pageSize, BookingResponse.From);
+    }
+
+    // Compare-and-set: Pending becomes Confirmed. Approving twice is harmless. Only the resource's approver may.
+    public async Task<BookingResponse> ApproveAsync(Guid id, Guid userId)
+    {
+        var booking = await LoadForDecisionAsync(id, userId);
+        if (booking.Status == BookingStatus.Confirmed)
+        {
+            return await GetAsync(id);
+        }
+
+        var updated = await _db.Bookings
+            .Where(b => b.Id == id && b.Status == BookingStatus.Pending)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(b => b.Status, BookingStatus.Confirmed)
+                .SetProperty(b => b.Version, b => b.Version + 1));
+        if (updated == 1)
+        {
+            _notifier.Notify(booking.OwnerId, $"Your booking of {Describe(booking.Resource, booking.Start, booking.End)} was approved.");
+            await _db.SaveChangesAsync();
+        }
+        else
+        {
+            await EnsureStatusAsync(id, BookingStatus.Confirmed, "approved");
+        }
+        return await GetAsync(id);
+    }
+
+    // Compare-and-set: Pending becomes Rejected, with a reason for the owner. Its add-on orders are cancelled.
+    public async Task<BookingResponse> RejectAsync(Guid id, Guid userId, string? reason)
+    {
+        var text = reason?.Trim() ?? "";
+        if (text.Length is 0 or > 500)
+        {
+            throw ApiException.Invalid(new() { ["reason"] = ["Say why, in up to 500 characters, so the person can plan something else."] });
+        }
+        var booking = await LoadForDecisionAsync(id, userId);
+        if (booking.Status == BookingStatus.Rejected)
+        {
+            return await GetAsync(id);
+        }
+
+        await using var transaction = await _db.Database.BeginTransactionAsync();
+        var updated = await _db.Bookings
+            .Where(b => b.Id == id && b.Status == BookingStatus.Pending)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(b => b.Status, BookingStatus.Rejected)
+                .SetProperty(b => b.RejectionReason, text)
+                .SetProperty(b => b.Version, b => b.Version + 1));
+        if (updated == 1)
+        {
+            await _db.AddOnOrders
+                .Where(o => o.BookingId == id && o.Status == AddOnOrderStatus.Requested)
+                .ExecuteUpdateAsync(s => s.SetProperty(o => o.Status, AddOnOrderStatus.Cancelled));
+            _notifier.Notify(booking.OwnerId, $"Your booking of {Describe(booking.Resource, booking.Start, booking.End)} was not approved: {text}");
+            await _db.SaveChangesAsync();
+        }
+        await transaction.CommitAsync();
+        if (updated == 0)
+        {
+            await EnsureStatusAsync(id, BookingStatus.Rejected, "rejected");
+        }
+        return await GetAsync(id);
+    }
+
+    private async Task<Domain.Booking> LoadForDecisionAsync(Guid id, Guid userId)
+    {
+        var booking = await _db.Bookings.AsNoTracking().Include(b => b.Resource).ThenInclude(r => r.Location)
+            .FirstOrDefaultAsync(b => b.Id == id) ?? throw BookingNotFound();
+        if (booking.Resource.ApproverId != userId)
+        {
+            throw new ApiException(StatusCodes.Status403Forbidden, "FORBIDDEN",
+                $"Only the approver of {booking.Resource.Name} can decide on this booking.");
+        }
+        if (booking.Status is not (BookingStatus.Pending or BookingStatus.Confirmed or BookingStatus.Rejected))
+        {
+            throw ApiException.Conflict("INVALID_STATE",
+                $"This booking is {booking.Status.ToString().ToLowerInvariant()} and no longer needs a decision.");
+        }
+        return booking;
+    }
+
+    // After a compare-and-set that changed nothing: fine if it already has the wanted status, otherwise say what it is.
+    private async Task EnsureStatusAsync(Guid id, BookingStatus wanted, string verb)
+    {
+        var current = await _db.Bookings.AsNoTracking().FirstAsync(b => b.Id == id);
+        if (current.Status != wanted)
+        {
+            throw ApiException.Conflict("INVALID_STATE",
+                $"This booking is {current.Status.ToString().ToLowerInvariant()}, so it can't be {verb}.");
+        }
+    }
+
+    // The owner approves their own resource's bookings by booking it, so only someone else's booking needs a decision.
+    private static bool NeedsApproval(Resource resource, Guid ownerId) =>
+        resource.ApproverId is not null && resource.ApproverId != ownerId;
+
+    private async Task AskApproverAsync(Resource resource, Guid ownerId, TimeRange range)
+    {
+        var owner = await _db.Users.AsNoTracking().Where(u => u.Id == ownerId).Select(u => u.Name).FirstAsync();
+        _notifier.Notify(resource.ApproverId!.Value,
+            $"{owner} asked for {Describe(resource, range.Start, range.End)}. Approve or reject it under Approvals.");
+    }
+
+    // "Pool car on Tue 3 Nov, 08:00 to 17:00", in the resource's local time. The resource needs its Location loaded.
+    private static string Describe(Resource resource, DateTime start, DateTime end)
+    {
+        var zone = LocalTime.Zone(resource.Location.TimeZone);
+        var localStart = LocalTime.ToLocal(start, zone);
+        return $"{resource.Name} on {localStart:ddd d MMM}, {localStart:HH:mm} to {LocalTime.ToLocal(end, zone):HH:mm}";
     }
 
     // Compare-and-set: a Confirmed booking becomes CheckedIn, only inside its check-in window.

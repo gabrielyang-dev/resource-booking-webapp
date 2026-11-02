@@ -17,9 +17,17 @@ public class AppDbContext : DbContext
     public DbSet<RuleSetting> RuleSettings => Set<RuleSetting>();
     public DbSet<AddOn> AddOns => Set<AddOn>();
     public DbSet<AddOnOrder> AddOnOrders => Set<AddOnOrder>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<Notification>(notification =>
+        {
+            notification.Property(n => n.Message).HasMaxLength(500);
+            notification.HasOne<User>().WithMany().HasForeignKey(n => n.UserId).OnDelete(DeleteBehavior.Cascade);
+            notification.HasIndex(n => new { n.UserId, n.CreatedAt });
+        });
+
         modelBuilder.Entity<AddOn>(addOn =>
         {
             addOn.Property(a => a.Name).HasMaxLength(200);
@@ -69,6 +77,7 @@ public class AppDbContext : DbContext
             resource.HasOne(r => r.Location).WithMany().HasForeignKey(r => r.LocationId).OnDelete(DeleteBehavior.Restrict);
             resource.HasOne(r => r.ResourceType).WithMany().HasForeignKey(r => r.ResourceTypeId).OnDelete(DeleteBehavior.Restrict);
             resource.HasIndex(r => r.ResourceTypeId);
+            resource.HasOne<User>().WithMany().HasForeignKey(r => r.ApproverId).OnDelete(DeleteBehavior.SetNull);
             resource.ToTable(t => t.HasCheckConstraint("CK_Resources_Capacity", "\"Capacity\" IS NULL OR \"Capacity\" >= 1"));
         });
 
@@ -78,6 +87,7 @@ public class AppDbContext : DbContext
         {
             booking.Property(b => b.Status).HasConversion<string>().HasMaxLength(20);
             booking.Property(b => b.IdempotencyKey).HasMaxLength(200);
+            booking.Property(b => b.RejectionReason).HasMaxLength(500);
             booking.Property(b => b.Version).IsConcurrencyToken();
             booking.HasOne(b => b.Resource).WithMany().HasForeignKey(b => b.ResourceId).OnDelete(DeleteBehavior.Restrict);
             booking.HasOne(b => b.Owner).WithMany().HasForeignKey(b => b.OwnerId).OnDelete(DeleteBehavior.Restrict);

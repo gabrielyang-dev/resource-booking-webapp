@@ -118,7 +118,11 @@ export function MyBookingsPage() {
               <td>{formatDate(b.start, b.timeZone)}</td>
               <td>{formatTime(b.start, b.timeZone)} to {formatTime(b.end, b.timeZone)}</td>
               <td>{b.addOns.filter((o) => o.status !== "Cancelled").map((o) => `${o.quantity} × ${o.name}`).join(", ") || <span className="muted">none</span>}</td>
-              <td><StatusBadge status={b.status} /></td>
+              <td>
+                <StatusBadge status={b.status} />
+                {b.status === "Pending" && <div className="muted" style={{ fontSize: "0.8rem" }}>Waiting for approval</div>}
+                {b.rejectionReason && <div className="muted" style={{ fontSize: "0.8rem" }}>{b.rejectionReason}</div>}
+              </td>
               <td>
                 {holdingStatuses.includes(b.status) && Date.parse(b.end) > now && (
                   <>

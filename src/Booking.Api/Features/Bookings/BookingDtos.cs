@@ -17,6 +17,8 @@ public record RescheduleRequest(
 
 public record AddOnOrderRequest(Guid? AddOnId, int? Quantity);
 
+public record RejectRequest(string? Reason);
+
 public record AddOnOrderResponse(Guid Id, Guid AddOnId, string Name, int Quantity, string Status)
 {
     public static AddOnOrderResponse From(AddOnOrder o) => new(o.Id, o.AddOnId, o.AddOn.Name, o.Quantity, o.Status.ToString());
@@ -38,13 +40,14 @@ public record BookingResponse(
     int Version,
     DateTime CreatedAt,
     DateTime? CheckedInAt,
+    string? RejectionReason,
     IReadOnlyList<AddOnOrderResponse> AddOns)
 {
     // The booking must have been loaded with its Resource (and Location) and Owner,
     // and with AddOnOrders (and their AddOn) where the orders should be shown.
     public static BookingResponse From(Domain.Booking b) => new(
         b.Id, b.ResourceId, b.Resource.Name, b.Resource.Location.Name, b.Resource.Location.TimeZone,
-        b.OwnerId, b.Owner.Name, b.Start, b.End, b.Status.ToString(), b.Attendees, b.Version, b.CreatedAt, b.CheckedInAt,
+        b.OwnerId, b.Owner.Name, b.Start, b.End, b.Status.ToString(), b.Attendees, b.Version, b.CreatedAt, b.CheckedInAt, b.RejectionReason,
         b.AddOnOrders.OrderBy(o => o.AddOn.Name).Select(AddOnOrderResponse.From).ToList());
 }
 
