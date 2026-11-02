@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
-import { api, describeError, Alternative, ApiError, Booking, Resource, ResourceBooking } from "../../api";
+import { api, describeError, AddOn, Alternative, ApiError, Booking, Paged, Resource, ResourceBooking } from "../../api";
 import { dayName, dayRange, formatDate, formatTime, fromMinutes, localToIso, todayIn, toMinutes, weekdayFrom } from "../../time";
 import { Messages } from "../../ui";
 import { DayTimeline, OpenHours } from "./DayTimeline";
@@ -25,10 +25,19 @@ export function ResourcePage({ resource, onBack }: { resource: Resource; onBack:
   const [errors, setErrors] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [alternatives, setAlternatives] = useState<Alternative[]>([]);
+  const [addOns, setAddOns] = useState<AddOn[]>([]);
+  // Quantity typed per add-on id; empty or 0 means not ordered.
+  const [quantities, setQuantities] = useState<Record<string, string>>({});
 
   useEffect(() => {
     api<Rule[]>("GET", `/api/resources/${resource.id}/rules`).then(setRules).catch(() => setRules([]));
+    api<Paged<AddOn>>("GET", `/api/add-ons?locationId=${resource.locationId}&pageSize=100`)
+      .then((page) => setAddOns(page.items)).catch(() => setAddOns([]));
   }, [resource.id]);
+
+  const ordered = addOns
+    .filter((a) => Number(quantities[a.id] || 0) > 0)
+    .map((a) => ({ addOnId: a.id, quantity: Number(quantities[a.id]) }));
 
   useEffect(() => {
     loadDay();
@@ -72,8 +81,12 @@ export function ResourcePage({ resource, onBack }: { resource: Resource; onBack:
         start,
         end,
         attendees: attendees === "" ? null : Number(attendees),
+        // Add-ons belong to this resource's location, so they only go with a booking here.
+        addOns: resourceId === resource.id ? ordered : [],
       });
-      setMessage(`Booked ${created.resourceName} on ${formatDate(created.start, resource.timeZone)}, ${formatTime(created.start, resource.timeZone)} to ${formatTime(created.end, resource.timeZone)}. It's in My bookings.`);
+      const extras = created.addOns.length > 0 ? ` With ${created.addOns.map((o) => `${o.quantity} × ${o.name}`).join(", ")}.` : "";
+      setMessage(`Booked ${created.resourceName} on ${formatDate(created.start, resource.timeZone)}, ${formatTime(created.start, resource.timeZone)} to ${formatTime(created.end, resource.timeZone)}.${extras} It's in My bookings.`);
+      setQuantities({});
     } catch (error) {
       setErrors(describeError(error));
       if (error instanceof ApiError) setAlternatives(error.alternatives);
@@ -106,6 +119,18 @@ export function ResourcePage({ resource, onBack }: { resource: Resource; onBack:
           </label>
           <button type="submit">Book {resource.name}</button>
         </form>
+        {addOns.length > 0 && (
+          <div className="row" style={{ marginTop: "0.75rem" }}>
+            <span className="muted" style={{ alignSelf: "center" }}>Order with it:</span>
+            {addOns.map((a) => (
+              <label key={a.id} title={`Order ${Math.round(a.leadTimeMinutes / 60)} hours ahead; for bookings starting ${a.availableFrom} to ${a.availableUntil}`}>
+                {a.name} <span>(needs {a.leadTimeMinutes >= 60 ? `${Math.round(a.leadTimeMinutes / 60)} h` : `${a.leadTimeMinutes} min`} notice, {a.availableFrom}–{a.availableUntil})</span>
+                <input type="number" min={0} placeholder="0" value={quantities[a.id] ?? ""} style={{ width: "6rem" }}
+                  onChange={(e) => setQuantities({ ...quantities, [a.id]: e.target.value })} />
+              </label>
+            ))}
+          </div>
+        )}
 
         <DayTimeline date={date} timeZone={resource.timeZone} bookings={bookings} openHours={openHours}
           selectionStart={startTime} selectionEnd={endTime} onPick={pickStart} />

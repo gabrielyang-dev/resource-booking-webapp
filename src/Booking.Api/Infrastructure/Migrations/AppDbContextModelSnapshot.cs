@@ -22,6 +22,82 @@ namespace Booking.Api.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Booking.Api.Domain.AddOn", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<TimeOnly>("AvailableFrom")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<TimeOnly>("AvailableUntil")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<Guid?>("FulfillerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("LeadTimeMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("LocationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FulfillerId");
+
+                    b.HasIndex("LocationId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("AddOns", t =>
+                        {
+                            t.HasCheckConstraint("CK_AddOns_Hours", "\"AvailableUntil\" > \"AvailableFrom\"");
+
+                            t.HasCheckConstraint("CK_AddOns_LeadTime", "\"LeadTimeMinutes\" >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("Booking.Api.Domain.AddOnOrder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AddOnId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BookingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AddOnId");
+
+                    b.HasIndex("BookingId");
+
+                    b.ToTable("AddOnOrders", t =>
+                        {
+                            t.HasCheckConstraint("CK_AddOnOrders_Quantity", "\"Quantity\" >= 1");
+                        });
+                });
+
             modelBuilder.Entity("Booking.Api.Domain.Booking", b =>
                 {
                     b.Property<Guid>("Id")
@@ -212,6 +288,39 @@ namespace Booking.Api.Infrastructure.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("Booking.Api.Domain.AddOn", b =>
+                {
+                    b.HasOne("Booking.Api.Domain.User", null)
+                        .WithMany()
+                        .HasForeignKey("FulfillerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Booking.Api.Domain.Location", "Location")
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Location");
+                });
+
+            modelBuilder.Entity("Booking.Api.Domain.AddOnOrder", b =>
+                {
+                    b.HasOne("Booking.Api.Domain.AddOn", "AddOn")
+                        .WithMany()
+                        .HasForeignKey("AddOnId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Booking.Api.Domain.Booking", null)
+                        .WithMany("AddOnOrders")
+                        .HasForeignKey("BookingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AddOn");
+                });
+
             modelBuilder.Entity("Booking.Api.Domain.Booking", b =>
                 {
                     b.HasOne("Booking.Api.Domain.User", "Owner")
@@ -261,6 +370,11 @@ namespace Booking.Api.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("ResourceTypeId")
                         .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("Booking.Api.Domain.Booking", b =>
+                {
+                    b.Navigation("AddOnOrders");
                 });
 #pragma warning restore 612, 618
         }

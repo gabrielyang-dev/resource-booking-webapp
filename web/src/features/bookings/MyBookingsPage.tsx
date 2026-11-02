@@ -93,7 +93,7 @@ export function MyBookingsPage() {
     return (
       <table>
         <thead>
-          <tr><th align="left">Resource</th><th align="left">Date</th><th align="left">Time</th><th align="left">Status</th><th></th></tr>
+          <tr><th>Resource</th><th>Date</th><th>Time</th><th>Add-ons</th><th>Status</th><th></th></tr>
         </thead>
         <tbody>
           {rows.map((b) => (
@@ -101,6 +101,7 @@ export function MyBookingsPage() {
               <td>{b.resourceName} ({b.locationName})</td>
               <td>{formatDate(b.start, b.timeZone)}</td>
               <td>{formatTime(b.start, b.timeZone)} to {formatTime(b.end, b.timeZone)}</td>
+              <td>{b.addOns.filter((o) => o.status !== "Cancelled").map((o) => `${o.quantity} × ${o.name}`).join(", ") || <span className="muted">none</span>}</td>
               <td><StatusBadge status={b.status} /></td>
               <td>
                 {holdingStatuses.includes(b.status) && Date.parse(b.end) > now && (

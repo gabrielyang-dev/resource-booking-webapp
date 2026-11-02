@@ -34,7 +34,21 @@ export type Booking = {
   status: string;
   attendees: number | null;
   version: number;
+  addOns: AddOnOrder[];
   createdAt: string;
+};
+export type AddOnOrder = { id: string; addOnId: string; name: string; quantity: number; status: string };
+// Something ordered with a booking, like catering. Times are local HH:mm at its location.
+export type AddOn = {
+  id: string;
+  locationId: string;
+  locationName: string;
+  name: string;
+  leadTimeMinutes: number;
+  availableFrom: string;
+  availableUntil: string;
+  fulfillerId: string | null;
+  active: boolean;
 };
 export type ResourceBooking = { id: string; start: string; end: string; status: string; ownerName: string };
 

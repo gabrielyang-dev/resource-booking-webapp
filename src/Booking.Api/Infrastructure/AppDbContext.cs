@@ -15,9 +15,33 @@ public class AppDbContext : DbContext
     public DbSet<Resource> Resources => Set<Resource>();
     public DbSet<Domain.Booking> Bookings => Set<Domain.Booking>();
     public DbSet<RuleSetting> RuleSettings => Set<RuleSetting>();
+    public DbSet<AddOn> AddOns => Set<AddOn>();
+    public DbSet<AddOnOrder> AddOnOrders => Set<AddOnOrder>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<AddOn>(addOn =>
+        {
+            addOn.Property(a => a.Name).HasMaxLength(200);
+            addOn.HasOne(a => a.Location).WithMany().HasForeignKey(a => a.LocationId).OnDelete(DeleteBehavior.Restrict);
+            addOn.HasOne<User>().WithMany().HasForeignKey(a => a.FulfillerId).OnDelete(DeleteBehavior.SetNull);
+            addOn.HasIndex(a => new { a.LocationId, a.Name }).IsUnique();
+            addOn.ToTable(t =>
+            {
+                t.HasCheckConstraint("CK_AddOns_LeadTime", "\"LeadTimeMinutes\" >= 0");
+                t.HasCheckConstraint("CK_AddOns_Hours", "\"AvailableUntil\" > \"AvailableFrom\"");
+            });
+        });
+
+        modelBuilder.Entity<AddOnOrder>(order =>
+        {
+            order.Property(o => o.Status).HasConversion<string>().HasMaxLength(20);
+            order.HasOne<Domain.Booking>().WithMany(b => b.AddOnOrders).HasForeignKey(o => o.BookingId).OnDelete(DeleteBehavior.Cascade);
+            order.HasOne(o => o.AddOn).WithMany().HasForeignKey(o => o.AddOnId).OnDelete(DeleteBehavior.Restrict);
+            order.HasIndex(o => o.BookingId);
+            order.ToTable(t => t.HasCheckConstraint("CK_AddOnOrders_Quantity", "\"Quantity\" >= 1"));
+        });
+
         modelBuilder.Entity<User>(user =>
         {
             user.Property(u => u.Name).HasMaxLength(200);

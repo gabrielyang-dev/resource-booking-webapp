@@ -13,4 +13,6 @@ public record BookingCandidate(
     int? Attendees,
     DateTime Now,
     // The owner's other slot-holding bookings on resources of the same type, around the same day (for quotas).
-    IReadOnlyList<TimeRange> OwnerOtherBookings);
+    IReadOnlyList<TimeRange> OwnerOtherBookings,
+    // Add-ons ordered with the booking (catering, for example). Null means none.
+    IReadOnlyList<OrderedAddOn>? AddOns = null);
