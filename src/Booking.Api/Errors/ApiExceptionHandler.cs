@@ -16,7 +16,7 @@ public class ApiExceptionHandler : IExceptionHandler
     {
         if (exception is ApiException api)
         {
-            await ProblemWriter.WriteAsync(context, api.Status, api.Code, api.Message, api.Errors);
+            await ProblemWriter.WriteAsync(context, api.Status, api.Code, api.Message, api.Errors, api.Extensions);
             return true;
         }
 

@@ -146,6 +146,43 @@ namespace Booking.Api.Infrastructure.Migrations
                     b.ToTable("ResourceTypes");
                 });
 
+            modelBuilder.Entity("Booking.Api.Domain.RuleSetting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<Guid?>("ResourceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ResourceTypeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Settings")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ResourceId", "Kind")
+                        .IsUnique()
+                        .HasFilter("\"ResourceId\" IS NOT NULL");
+
+                    b.HasIndex("ResourceTypeId", "Kind")
+                        .IsUnique()
+                        .HasFilter("\"ResourceTypeId\" IS NOT NULL");
+
+                    b.ToTable("RuleSettings", t =>
+                        {
+                            t.HasCheckConstraint("CK_RuleSettings_One_Owner", "(\"ResourceTypeId\" IS NULL) <> (\"ResourceId\" IS NULL)");
+                        });
+                });
+
             modelBuilder.Entity("Booking.Api.Domain.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -211,6 +248,19 @@ namespace Booking.Api.Infrastructure.Migrations
                     b.Navigation("Location");
 
                     b.Navigation("ResourceType");
+                });
+
+            modelBuilder.Entity("Booking.Api.Domain.RuleSetting", b =>
+                {
+                    b.HasOne("Booking.Api.Domain.Resource", null)
+                        .WithMany()
+                        .HasForeignKey("ResourceId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Booking.Api.Domain.ResourceType", null)
+                        .WithMany()
+                        .HasForeignKey("ResourceTypeId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 #pragma warning restore 612, 618
         }

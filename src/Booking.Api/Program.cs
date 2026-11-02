@@ -3,9 +3,13 @@ using Booking.Api.Errors;
 using Booking.Api.Features.Bookings;
 using Booking.Api.Features.Catalog;
 using Booking.Api.Features.Demo;
+using Booking.Api.Features.Insights;
+using Booking.Api.Features.Rules;
 using Booking.Api.Features.Session;
 using Booking.Api.Features.Users;
 using Booking.Api.Infrastructure;
+using Booking.Api.Jobs;
+using Booking.Api.Rules;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -37,6 +41,23 @@ builder.Services.AddScoped<LocationsManager>();
 builder.Services.AddScoped<ResourceTypesManager>();
 builder.Services.AddScoped<ResourcesManager>();
 builder.Services.AddScoped<BookingManager>();
+builder.Services.AddScoped<RulesManager>();
+builder.Services.AddScoped<InsightsManager>();
+
+// The rule engine runs every always-on check and every configurable rule registered here.
+builder.Services.AddSingleton<IBookingCheck, ValidTimeRangeCheck>();
+builder.Services.AddSingleton<IBookingCheck, CapacityCheck>();
+builder.Services.AddSingleton<IBookingRule, OpeningHoursRule>();
+builder.Services.AddSingleton<IBookingRule, MaxDurationRule>();
+builder.Services.AddSingleton<IBookingRule, BookingWindowRule>();
+builder.Services.AddSingleton<IBookingRule, DailyQuotaRule>();
+builder.Services.AddSingleton<RuleEngine>();
+
+// Moves bookings that have ended to Completed. Off in the integration tests, which call it directly.
+if (builder.Configuration.GetValue("Jobs:Enabled", true))
+{
+    builder.Services.AddHostedService<CompleteEndedBookings>();
+}
 builder.Services.AddScoped<DemoManager>();
 
 // Errors that MVC builds itself (415, 405, ...) get a code too; ApiExceptionHandler covers thrown errors.

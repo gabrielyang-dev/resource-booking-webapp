@@ -1,4 +1,5 @@
 using Booking.Api.Domain;
+using Booking.Api.Rules;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
@@ -40,6 +41,13 @@ public static class DemoData
             AddSeedCatalogue(db);
         }
         await db.SaveChangesAsync();
+
+        // Rules came after the catalogue: a database that has the seed types but no rules yet gets the defaults.
+        if (!await db.RuleSettings.AnyAsync() && await db.ResourceTypes.AnyAsync(t => t.Id == MeetingRoomTypeId))
+        {
+            AddSeedRules(db);
+            await db.SaveChangesAsync();
+        }
     }
 
     // Empties the app tables and inserts the seed again, in one transaction.
@@ -69,9 +77,10 @@ public static class DemoData
         // Taking these locks first makes the second reset wait, then run on the already clean tables.
         // One statement, always in this order, so two resets cannot lock in opposite orders and deadlock.
         await db.Database.ExecuteSqlRawAsync(
-            "LOCK TABLE \"Users\", \"Locations\", \"ResourceTypes\", \"Resources\", \"Bookings\" IN EXCLUSIVE MODE");
+            "LOCK TABLE \"Users\", \"Locations\", \"ResourceTypes\", \"Resources\", \"Bookings\", \"RuleSettings\" IN EXCLUSIVE MODE");
         // Children before parents, because the foreign keys restrict deletes.
         await db.Bookings.ExecuteDeleteAsync();
+        await db.RuleSettings.ExecuteDeleteAsync();
         await db.Resources.ExecuteDeleteAsync();
         await db.Locations.ExecuteDeleteAsync();
         await db.ResourceTypes.ExecuteDeleteAsync();
@@ -79,6 +88,7 @@ public static class DemoData
         db.ChangeTracker.Clear();
         AddSeedUsers(db);
         AddSeedCatalogue(db);
+        AddSeedRules(db);
         await db.SaveChangesAsync();
         await transaction.CommitAsync();
     }
@@ -112,4 +122,21 @@ public static class DemoData
 
     private static Resource Seed(Guid id, Guid typeId, string name, int? capacity) =>
         new() { Id = id, LocationId = LondonId, ResourceTypeId = typeId, Name = name, Capacity = capacity, IsActive = true };
+
+    // Office defaults. Meeting rooms allow at most 2 hours, so "Room A 17:00 to 19:30" shows two violations in the demo.
+    private static void AddSeedRules(AppDbContext db)
+    {
+        string[] weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+        db.RuleSettings.AddRange(
+            TypeRule(MeetingRoomTypeId, RuleKind.OpeningHours, new OpeningHoursSettings("08:00", "18:00", weekdays)),
+            TypeRule(MeetingRoomTypeId, RuleKind.MaxDuration, new MaxDurationSettings(120)),
+            TypeRule(MeetingRoomTypeId, RuleKind.BookingWindow, new BookingWindowSettings(0, 60)),
+            TypeRule(DeskTypeId, RuleKind.OpeningHours, new OpeningHoursSettings("07:00", "20:00", weekdays)),
+            TypeRule(DeskTypeId, RuleKind.DailyQuota, new DailyQuotaSettings(480)),
+            TypeRule(CarTypeId, RuleKind.MaxDuration, new MaxDurationSettings(600)),
+            TypeRule(CarTypeId, RuleKind.BookingWindow, new BookingWindowSettings(60, 30)));
+    }
+
+    private static RuleSetting TypeRule<T>(Guid typeId, RuleKind kind, T settings) =>
+        new() { Id = Guid.NewGuid(), ResourceTypeId = typeId, Kind = kind, Settings = RuleSettings.ToJson(settings) };
 }

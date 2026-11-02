@@ -2,10 +2,11 @@ import { useState } from "react";
 import { LocationsSection } from "./LocationsSection";
 import { ResourceTypesSection } from "./ResourceTypesSection";
 import { ResourcesSection } from "./ResourcesSection";
+import { RulesSection } from "./RulesSection";
 
-type Tab = "locations" | "types" | "resources";
+type Tab = "locations" | "types" | "resources" | "rules";
 
-// Admin only: three sections, one at a time.
+// Admin only: four sections, one at a time.
 export function CataloguePage() {
   const [tab, setTab] = useState<Tab>("resources");
   return (
@@ -14,10 +15,12 @@ export function CataloguePage() {
       <p>
         <button disabled={tab === "locations"} onClick={() => setTab("locations")}>Locations</button>{" "}
         <button disabled={tab === "types"} onClick={() => setTab("types")}>Resource types</button>{" "}
-        <button disabled={tab === "resources"} onClick={() => setTab("resources")}>Resources</button>
+        <button disabled={tab === "resources"} onClick={() => setTab("resources")}>Resources</button>{" "}
+        <button disabled={tab === "rules"} onClick={() => setTab("rules")}>Rules</button>
       </p>
       {tab === "locations" && <LocationsSection />}
       {tab === "types" && <ResourceTypesSection />}
+      {tab === "rules" && <RulesSection />}
       {tab === "resources" && <ResourcesSection />}
     </section>
   );

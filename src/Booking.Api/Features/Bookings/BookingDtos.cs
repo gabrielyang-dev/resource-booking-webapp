@@ -3,7 +3,8 @@ using Booking.Api.Domain;
 namespace Booking.Api.Features.Bookings;
 
 // Start and end are ISO-8601 with an offset or Z; the server converts them to UTC.
-public record BookingRequest(Guid? ResourceId, DateTimeOffset? Start, DateTimeOffset? End, int? Attendees);
+// OwnerId lets an admin book for someone else; it is ignored for members.
+public record BookingRequest(Guid? ResourceId, DateTimeOffset? Start, DateTimeOffset? End, int? Attendees, Guid? OwnerId = null);
 
 // Version is the one the client last read; a different stored version means someone else changed it.
 public record RescheduleRequest(Guid? ResourceId, DateTimeOffset? Start, DateTimeOffset? End, int? Attendees, int? Version);
