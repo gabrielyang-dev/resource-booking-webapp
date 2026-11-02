@@ -6,7 +6,8 @@ namespace Booking.Api.Errors;
 public static class ProblemWriter
 {
     public static Task WriteAsync(
-        HttpContext context, int status, string code, string detail, Dictionary<string, string[]>? errors = null)
+        HttpContext context, int status, string code, string detail, Dictionary<string, string[]>? errors = null,
+        Dictionary<string, object>? extensions = null)
     {
         var problem = new ProblemDetails
         {
@@ -19,6 +20,10 @@ public static class ProblemWriter
         if (errors is not null)
         {
             problem.Extensions["errors"] = errors;
+        }
+        foreach (var (name, value) in extensions ?? new())
+        {
+            problem.Extensions[name] = value;
         }
 
         context.Response.StatusCode = status;
@@ -64,6 +69,7 @@ public static class ProblemWriter
         405 => "Method not allowed",
         415 => "Unsupported media type",
         409 => "Conflict",
+        422 => "Breaks a booking rule",
         _ => "Something went wrong",
     };
 }

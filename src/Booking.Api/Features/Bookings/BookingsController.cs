@@ -24,7 +24,7 @@ public class BookingsController : ControllerBase
     public async Task<IActionResult> Create(
         BookingRequest request, [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey)
     {
-        var result = await _bookings.CreateAsync(_currentUser.Id, request, idempotencyKey);
+        var result = await _bookings.CreateAsync(_currentUser.Id, IsAdmin, request, idempotencyKey);
         return StatusCode(result.Created ? StatusCodes.Status201Created : StatusCodes.Status200OK, result.Booking);
     }
 

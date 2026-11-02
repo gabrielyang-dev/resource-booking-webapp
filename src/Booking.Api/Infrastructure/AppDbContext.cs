@@ -14,6 +14,7 @@ public class AppDbContext : DbContext
     public DbSet<ResourceType> ResourceTypes => Set<ResourceType>();
     public DbSet<Resource> Resources => Set<Resource>();
     public DbSet<Domain.Booking> Bookings => Set<Domain.Booking>();
+    public DbSet<RuleSetting> RuleSettings => Set<RuleSetting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -60,6 +61,19 @@ public class AppDbContext : DbContext
             booking.HasIndex(b => new { b.OwnerId, b.Start });
             booking.HasIndex(b => new { b.OwnerId, b.IdempotencyKey }).IsUnique();
             booking.ToTable(t => t.HasCheckConstraint("CK_Bookings_End_After_Start", "\"End\" > \"Start\""));
+        });
+
+        // A rule belongs to a resource type (the default) or to one resource (an override), never both.
+        modelBuilder.Entity<RuleSetting>(setting =>
+        {
+            setting.Property(s => s.Kind).HasConversion<string>().HasMaxLength(30);
+            setting.Property(s => s.Settings).HasColumnType("jsonb");
+            setting.HasOne<ResourceType>().WithMany().HasForeignKey(s => s.ResourceTypeId).OnDelete(DeleteBehavior.Cascade);
+            setting.HasOne<Resource>().WithMany().HasForeignKey(s => s.ResourceId).OnDelete(DeleteBehavior.Cascade);
+            setting.HasIndex(s => new { s.ResourceTypeId, s.Kind }).IsUnique().HasFilter("\"ResourceTypeId\" IS NOT NULL");
+            setting.HasIndex(s => new { s.ResourceId, s.Kind }).IsUnique().HasFilter("\"ResourceId\" IS NOT NULL");
+            setting.ToTable(t => t.HasCheckConstraint("CK_RuleSettings_One_Owner",
+                "(\"ResourceTypeId\" IS NULL) <> (\"ResourceId\" IS NULL)"));
         });
     }
 }

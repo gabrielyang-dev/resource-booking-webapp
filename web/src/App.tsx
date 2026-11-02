@@ -6,9 +6,10 @@ import { UsersPage } from "./features/users/UsersPage";
 import { CataloguePage } from "./features/catalogue/CataloguePage";
 import { FindResourcePage } from "./features/catalogue/FindResourcePage";
 import { MyBookingsPage } from "./features/bookings/MyBookingsPage";
+import { InsightsPage } from "./features/insights/InsightsPage";
 
 // No routing library: the view is just state.
-type View = "home" | "find" | "mine" | "users" | "catalogue";
+type View = "home" | "find" | "mine" | "users" | "catalogue" | "insights";
 
 export function App() {
   // undefined = still checking the cookie, null = signed out.
@@ -78,6 +79,7 @@ export function App() {
             {user.role === "Admin" && (
               <>
                 <button onClick={() => setView("users")}>Users</button>
+                <button onClick={() => setView("insights")}>Insights</button>
                 <button onClick={() => setView("catalogue")}>Catalogue</button>
                 <button onClick={resetDemoData}>Reset demo data</button>
               </>
@@ -95,6 +97,7 @@ export function App() {
       {user && view === "mine" && <MyBookingsPage />}
       {user && user.role === "Admin" && view === "users" && <UsersPage />}
       {user && user.role === "Admin" && view === "catalogue" && <CataloguePage />}
+      {user && user.role === "Admin" && view === "insights" && <InsightsPage />}
 
       <footer style={{ marginTop: "2rem" }}>
         <HealthStatus />

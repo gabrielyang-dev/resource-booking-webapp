@@ -38,16 +38,21 @@ export type Booking = {
 };
 export type ResourceBooking = { id: string; start: string; end: string; status: string; ownerName: string };
 
+export type Violation = { code: string; message: string };
+
 export class ApiError extends Error {
   status: number;
   code: string;
   errors: Record<string, string[]>;
+  // Booking rules the request broke (422 RULE_VIOLATION), all at once.
+  violations: Violation[];
 
-  constructor(status: number, code: string, detail: string, errors: Record<string, string[]>) {
+  constructor(status: number, code: string, detail: string, errors: Record<string, string[]>, violations: Violation[] = []) {
     super(detail);
     this.status = status;
     this.code = code;
     this.errors = errors;
+    this.violations = violations;
   }
 }
 
@@ -68,7 +73,7 @@ export async function api<T>(method: string, path: string, body?: unknown): Prom
     return response.status === 204 ? (undefined as T) : await response.json();
   }
 
-  let problem: { code?: string; detail?: string; errors?: Record<string, string[]> } = {};
+  let problem: { code?: string; detail?: string; errors?: Record<string, string[]>; violations?: Violation[] } = {};
   try {
     problem = await response.json();
   } catch {
@@ -82,6 +87,7 @@ export async function api<T>(method: string, path: string, body?: unknown): Prom
     problem.code ?? "UNKNOWN",
     problem.detail ?? "Something went wrong. Try again.",
     problem.errors ?? {},
+    problem.violations ?? [],
   );
 }
 
@@ -89,6 +95,9 @@ export async function api<T>(method: string, path: string, body?: unknown): Prom
 // The server writes each message so it makes sense without the field name.
 export function describeError(error: unknown): string[] {
   if (error instanceof ApiError) {
+    if (error.violations.length > 0) {
+      return [error.message, ...error.violations.map((v) => v.message)];
+    }
     const messages = Object.values(error.errors).flat();
     return messages.length > 0 ? [...new Set(messages)] : [error.message];
   }

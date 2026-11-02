@@ -198,8 +198,6 @@ public class BookingTests : IntegrationTestBase
         var alice = await SignedInClientAsync(DemoData.AliceId);
         var bodies = new object[]
         {
-            Body(DemoData.RoomAId, 10, 9),
-            Body(DemoData.RoomAId, 10, 10),
             Body(DemoData.RoomAId, 9, 10, attendees: 0),
             Body(Guid.NewGuid(), 9, 10),
         };
@@ -209,6 +207,22 @@ public class BookingTests : IntegrationTestBase
             var response = await alice.PostAsJsonAsync("/api/bookings", body);
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             Assert.Equal("VALIDATION_FAILED", (await Json(response)).GetProperty("code").GetString());
+        }
+        Assert.Equal(0, await CountBookingsAsync());
+    }
+
+    [Fact]
+    public async Task An_end_before_or_equal_to_the_start_breaks_a_rule_with_422()
+    {
+        await SeedAsync();
+        var alice = await SignedInClientAsync(DemoData.AliceId);
+
+        foreach (var body in new[] { Body(DemoData.RoomAId, 10, 9), Body(DemoData.RoomAId, 10, 10) })
+        {
+            var response = await alice.PostAsJsonAsync("/api/bookings", body);
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+            var codes = (await Json(response)).GetProperty("violations").EnumerateArray().Select(v => v.GetProperty("code").GetString());
+            Assert.Contains("END_BEFORE_START", codes);
         }
         Assert.Equal(0, await CountBookingsAsync());
     }

@@ -1,8 +1,10 @@
 using Booking.Api.Abstractions;
 using Booking.Api.Domain;
 using Booking.Api.Errors;
+using Booking.Api.Features.Rules;
 using Booking.Api.Features.Shared;
 using Booking.Api.Infrastructure;
+using Booking.Api.Rules;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
@@ -19,17 +21,23 @@ public class BookingManager
 
     private readonly AppDbContext _db;
     private readonly IClock _clock;
+    private readonly RuleEngine _engine;
+    private readonly RulesManager _rules;
 
-    public BookingManager(AppDbContext db, IClock clock)
+    public BookingManager(AppDbContext db, IClock clock, RuleEngine engine, RulesManager rules)
     {
         _db = db;
         _clock = clock;
+        _engine = engine;
+        _rules = rules;
     }
 
-    public async Task<CreateBookingResult> CreateAsync(Guid ownerId, BookingRequest request, string? idempotencyKey)
+    // Admins may book for someone else (request.OwnerId); the rules are then judged for that person.
+    public async Task<CreateBookingResult> CreateAsync(Guid currentUserId, bool isAdmin, BookingRequest request, string? idempotencyKey)
     {
         var key = string.IsNullOrWhiteSpace(idempotencyKey) ? null : idempotencyKey.Trim();
         var (resourceId, range) = Validate(request, key);
+        var ownerId = await ResolveOwnerAsync(currentUserId, isAdmin, request.OwnerId);
 
         if (key is not null)
         {
@@ -41,6 +49,7 @@ public class BookingManager
         }
 
         var resource = await LoadBookableResourceAsync(resourceId);
+        await EnforceRulesAsync(resource, ownerId, range, request.Attendees, excludeBookingId: null);
 
         var clash = await FindClashAsync(resourceId, range, excludeBookingId: null);
         if (clash is not null)
@@ -137,6 +146,8 @@ public class BookingManager
         }
 
         var resource = await LoadBookableResourceAsync(resourceId);
+        // Every rule runs again, for the owner (not the admin who may be moving it), ignoring the booking itself.
+        await EnforceRulesAsync(resource, booking.OwnerId, range, request.Attendees, excludeBookingId: id);
         var clash = await FindClashAsync(resourceId, range, excludeBookingId: id);
         if (clash is not null)
         {
@@ -271,6 +282,42 @@ public class BookingManager
             .OrderBy(b => b.Start).ThenBy(b => b.Id)
             .FirstOrDefaultAsync();
 
+    private async Task<Guid> ResolveOwnerAsync(Guid currentUserId, bool isAdmin, Guid? requestedOwnerId)
+    {
+        if (!isAdmin || requestedOwnerId is null || requestedOwnerId == currentUserId)
+        {
+            return currentUserId;
+        }
+        if (!await _db.Users.AnyAsync(u => u.Id == requestedOwnerId))
+        {
+            throw ApiException.Invalid(new() { ["ownerId"] = ["That user does not exist. Choose a user from the list."] });
+        }
+        return requestedOwnerId.Value;
+    }
+
+    // Runs every check and the resource's effective rules; throws one 422 listing every problem.
+    private async Task EnforceRulesAsync(Resource resource, Guid ownerId, TimeRange range, int? attendees, Guid? excludeBookingId)
+    {
+        // The owner's other bookings on this type of resource around the same day, for the daily quota.
+        var from = range.Start.AddDays(-1);
+        var to = range.End.AddDays(1);
+        var others = await _db.Bookings.AsNoTracking()
+            .Where(b => b.OwnerId == ownerId && b.Resource.ResourceTypeId == resource.ResourceTypeId
+                && HoldingStatuses.Contains(b.Status) && b.Start < to && from < b.End
+                && b.Id != excludeBookingId)
+            .Select(b => new TimeRange(b.Start, b.End))
+            .ToListAsync();
+
+        var candidate = new BookingCandidate(resource.Name, resource.Capacity, resource.Location.TimeZone,
+            ownerId, range, attendees, _clock.UtcNow, others);
+        var settings = await _rules.GetEffectiveAsync(resource.Id, resource.ResourceTypeId);
+        var violations = _engine.Evaluate(candidate, settings);
+        if (violations.Count > 0)
+        {
+            throw ApiException.RuleViolation(violations);
+        }
+    }
+
     private async Task<Resource> LoadBookableResourceAsync(Guid resourceId)
     {
         var resource = await _db.Resources.Include(r => r.Location).AsNoTracking()
@@ -313,10 +360,6 @@ public class BookingManager
         if (request.End is null)
         {
             errors["end"] = ["Enter an end time, for example 2026-11-05T11:00:00Z."];
-        }
-        if (request.Start is not null && request.End is not null && request.End <= request.Start)
-        {
-            errors["end"] = ["The end time must be after the start time. Choose a later end time."];
         }
         if (request.Attendees is < 1 or > MaxAttendees)
         {

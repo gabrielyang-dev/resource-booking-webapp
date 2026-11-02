@@ -15,7 +15,11 @@ public abstract class IntegrationTestBase : IAsyncLifetime
         Factory = factory;
     }
 
-    public Task InitializeAsync() => TestDatabase.ResetAsync();
+    public Task InitializeAsync()
+    {
+        Factory.Clock.UtcNow = FakeClock.Start;
+        return TestDatabase.ResetAsync();
+    }
 
     public Task DisposeAsync() => Task.CompletedTask;
 
