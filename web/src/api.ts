@@ -39,6 +39,8 @@ export type Booking = {
 export type ResourceBooking = { id: string; start: string; end: string; status: string; ownerName: string };
 
 export type Violation = { code: string; message: string };
+// A suggestion that comes with a rejection: this resource at this time is free and passes the rules.
+export type Alternative = { resourceId: string; resourceName: string; start: string; end: string };
 
 export class ApiError extends Error {
   status: number;
@@ -46,13 +48,16 @@ export class ApiError extends Error {
   errors: Record<string, string[]>;
   // Booking rules the request broke (422 RULE_VIOLATION), all at once.
   violations: Violation[];
+  // Nearest valid alternatives (on SLOT_TAKEN and RULE_VIOLATION).
+  alternatives: Alternative[];
 
-  constructor(status: number, code: string, detail: string, errors: Record<string, string[]>, violations: Violation[] = []) {
+  constructor(status: number, code: string, detail: string, errors: Record<string, string[]>, violations: Violation[] = [], alternatives: Alternative[] = []) {
     super(detail);
     this.status = status;
     this.code = code;
     this.errors = errors;
     this.violations = violations;
+    this.alternatives = alternatives;
   }
 }
 
@@ -73,7 +78,7 @@ export async function api<T>(method: string, path: string, body?: unknown): Prom
     return response.status === 204 ? (undefined as T) : await response.json();
   }
 
-  let problem: { code?: string; detail?: string; errors?: Record<string, string[]>; violations?: Violation[] } = {};
+  let problem: { code?: string; detail?: string; errors?: Record<string, string[]>; violations?: Violation[]; alternatives?: Alternative[] } = {};
   try {
     problem = await response.json();
   } catch {
@@ -88,6 +93,7 @@ export async function api<T>(method: string, path: string, body?: unknown): Prom
     problem.detail ?? "Something went wrong. Try again.",
     problem.errors ?? {},
     problem.violations ?? [],
+    problem.alternatives ?? [],
   );
 }
 

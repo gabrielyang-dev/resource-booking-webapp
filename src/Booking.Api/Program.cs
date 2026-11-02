@@ -41,6 +41,7 @@ builder.Services.AddScoped<LocationsManager>();
 builder.Services.AddScoped<ResourceTypesManager>();
 builder.Services.AddScoped<ResourcesManager>();
 builder.Services.AddScoped<BookingManager>();
+builder.Services.AddScoped<BookingJudge>();
 builder.Services.AddScoped<RulesManager>();
 builder.Services.AddScoped<InsightsManager>();
 
@@ -108,7 +109,7 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.MigrateAsync();
-    await DemoData.SeedIfEmptyAsync(db);
+    await DemoData.SeedIfEmptyAsync(db, scope.ServiceProvider.GetRequiredService<IClock>().UtcNow);
 }
 
 app.UseForwardedHeaders();

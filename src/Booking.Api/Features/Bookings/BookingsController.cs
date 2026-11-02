@@ -1,5 +1,6 @@
 using Booking.Api.Abstractions;
 using Booking.Api.Domain;
+using Booking.Api.Features.Catalog;
 using Booking.Api.Features.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -27,6 +28,13 @@ public class BookingsController : ControllerBase
         var result = await _bookings.CreateAsync(_currentUser.Id, IsAdmin, request, idempotencyKey);
         return StatusCode(result.Created ? StatusCodes.Status201Created : StatusCodes.Status200OK, result.Booking);
     }
+
+    // Free resources that pass every rule for the signed-in user at that time.
+    [HttpGet("api/availability")]
+    public async Task<PagedResponse<ResourceResponse>> Availability(
+        [FromQuery] Guid? locationId, [FromQuery] Guid? resourceTypeId, [FromQuery] DateTimeOffset? start, [FromQuery] DateTimeOffset? end,
+        [FromQuery] int? attendees, [FromQuery] int page = 1, [FromQuery] int pageSize = 20) =>
+        await _bookings.FindAvailableAsync(_currentUser.Id, locationId, resourceTypeId, start, end, attendees, page, pageSize);
 
     [HttpGet("api/bookings/{id:guid}")]
     public async Task<BookingResponse> Get(Guid id) =>

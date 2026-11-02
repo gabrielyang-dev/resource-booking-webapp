@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
-import { api, describeError, Booking, Resource, ResourceBooking } from "../../api";
+import { api, describeError, Alternative, ApiError, Booking, Resource, ResourceBooking } from "../../api";
 import { dayRange, formatTime, localToIso, todayIn } from "../../time";
 
 // One resource: the day's bookings and a form to book it. Times are in the location's time zone.
@@ -11,6 +11,7 @@ export function ResourcePage({ resource, onBack }: { resource: Resource; onBack:
   const [attendees, setAttendees] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
   const [message, setMessage] = useState("");
+  const [alternatives, setAlternatives] = useState<Alternative[]>([]);
 
   useEffect(() => {
     loadDay();
@@ -25,23 +26,29 @@ export function ResourcePage({ resource, onBack }: { resource: Resource; onBack:
     }
   }
 
-  async function book(event: FormEvent) {
+  function book(event: FormEvent) {
     event.preventDefault();
+    send(resource.id, localToIso(date, startTime, resource.timeZone), localToIso(date, endTime, resource.timeZone));
+  }
+
+  // Used by the form and by the alternative buttons (which may be another resource).
+  async function send(resourceId: string, start: string, end: string) {
     setErrors([]);
     setMessage("");
+    setAlternatives([]);
     try {
       const created = await api<Booking>("POST", "/api/bookings", {
-        resourceId: resource.id,
-        start: localToIso(date, startTime, resource.timeZone),
-        end: localToIso(date, endTime, resource.timeZone),
+        resourceId,
+        start,
+        end,
         attendees: attendees === "" ? null : Number(attendees),
       });
-      setMessage(`Booked ${resource.name} from ${formatTime(created.start, resource.timeZone)} to ${formatTime(created.end, resource.timeZone)}.`);
-      await loadDay();
+      setMessage(`Booked ${created.resourceName} from ${formatTime(created.start, resource.timeZone)} to ${formatTime(created.end, resource.timeZone)}.`);
     } catch (error) {
       setErrors(describeError(error));
-      await loadDay();
+      if (error instanceof ApiError) setAlternatives(error.alternatives);
     }
+    await loadDay();
   }
 
   return (
@@ -84,6 +91,18 @@ export function ResourcePage({ resource, onBack }: { resource: Resource; onBack:
       {errors.map((message) => (
         <p key={message} style={{ color: "#b00020" }}>{message}</p>
       ))}
+      {alternatives.length > 0 && (
+        <div>
+          <p>These are free and allowed instead:</p>
+          <p>
+            {alternatives.map((a) => (
+              <button key={a.resourceId + a.start} onClick={() => send(a.resourceId, a.start, a.end)} style={{ marginRight: 8 }}>
+                Book {a.resourceName}, {formatTime(a.start, resource.timeZone)} to {formatTime(a.end, resource.timeZone)}
+              </button>
+            ))}
+          </p>
+        </div>
+      )}
       {message && <p>{message}</p>}
     </section>
   );

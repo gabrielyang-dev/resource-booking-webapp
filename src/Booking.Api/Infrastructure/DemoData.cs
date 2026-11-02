@@ -30,7 +30,7 @@ public static class DemoData
 
     // Runs at startup. Seeds the users when there are none, and the catalogue when there is none
     // (so a database created before the catalogue existed gets it too).
-    public static async Task SeedIfEmptyAsync(AppDbContext db)
+    public static async Task SeedIfEmptyAsync(AppDbContext db, DateTime nowUtc)
     {
         if (!await db.Users.AnyAsync())
         {
@@ -48,14 +48,23 @@ public static class DemoData
             AddSeedRules(db);
             await db.SaveChangesAsync();
         }
+
+        // A database with the seed catalogue but no bookings yet (a fresh one, or one from before bookings) gets the demo bookings.
+        if (!await db.Bookings.AnyAsync() && await db.Resources.AnyAsync(r => r.Id == RoomAId))
+        {
+            db.Bookings.AddRange(DemoBookings.Create(nowUtc));
+            await db.SaveChangesAsync();
+        }
     }
 
     // Empties the app tables and inserts the seed again, in one transaction.
-    public static async Task ResetAsync(AppDbContext db)
+    // With nowUtc (the app always passes it) the demo bookings around that time are added too;
+    // most tests leave it out so they start with no bookings.
+    public static async Task ResetAsync(AppDbContext db, DateTime? nowUtc = null)
     {
         try
         {
-            await ResetOnceAsync(db);
+            await ResetOnceAsync(db, nowUtc);
         }
         catch (Exception ex) when (IsDeadlock(ex))
         {
@@ -63,14 +72,14 @@ public static class DemoData
             // and Postgres cancels one of the two. If that was the reset, nothing was changed (the transaction
             // rolled back), so running it once more is safe and the admin never sees a 500.
             db.ChangeTracker.Clear();
-            await ResetOnceAsync(db);
+            await ResetOnceAsync(db, nowUtc);
         }
     }
 
     private static bool IsDeadlock(Exception ex) =>
         (ex as PostgresException ?? ex.InnerException as PostgresException)?.SqlState == PostgresErrorCodes.DeadlockDetected;
 
-    private static async Task ResetOnceAsync(AppDbContext db)
+    private static async Task ResetOnceAsync(AppDbContext db, DateTime? nowUtc)
     {
         await using var transaction = await db.Database.BeginTransactionAsync();
         // Two resets at once would both insert the seed ids and one would hit the primary key.
@@ -89,6 +98,10 @@ public static class DemoData
         AddSeedUsers(db);
         AddSeedCatalogue(db);
         AddSeedRules(db);
+        if (nowUtc is not null)
+        {
+            db.Bookings.AddRange(DemoBookings.Create(nowUtc.Value));
+        }
         await db.SaveChangesAsync();
         await transaction.CommitAsync();
     }

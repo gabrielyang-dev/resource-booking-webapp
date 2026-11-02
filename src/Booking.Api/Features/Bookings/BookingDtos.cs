@@ -38,5 +38,8 @@ public record ResourceBookingResponse(Guid Id, DateTime Start, DateTime End, str
         new(b.Id, b.Start, b.End, b.Status.ToString(), b.Owner.Name);
 }
 
+// A suggestion returned with a rejection: book this resource at this time instead.
+public record AlternativeResponse(Guid ResourceId, string ResourceName, DateTime Start, DateTime End);
+
 // Created is false when an Idempotency-Key replay returned the stored booking.
 public record CreateBookingResult(BookingResponse Booking, bool Created);
