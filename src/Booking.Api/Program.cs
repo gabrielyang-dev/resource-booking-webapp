@@ -1,4 +1,12 @@
+using Booking.Api.Abstractions;
+using Booking.Api.Errors;
+using Booking.Api.Features.Demo;
+using Booking.Api.Features.Session;
+using Booking.Api.Features.Users;
 using Booking.Api.Infrastructure;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,14 +18,83 @@ if (!string.IsNullOrEmpty(port))
     builder.WebHost.UseUrls($"http://+:{port}");
 }
 
-builder.Services.AddControllers();
+builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
+{
+    // Malformed bodies use the same error shape as everything else.
+    options.InvalidModelStateResponseFactory = context => new MalformedRequestResult(context.ModelState);
+});
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
 
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+builder.Services.AddScoped<SessionManager>();
+builder.Services.AddScoped<UsersManager>();
+builder.Services.AddScoped<DemoManager>();
+
+// Errors that MVC builds itself (415, 405, ...) get a code too; ApiExceptionHandler covers thrown errors.
+builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = ProblemWriter.AddCode);
+builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+
+// Render ends TLS and forwards plain http, so trust X-Forwarded-Proto: the cookie is then Secure there.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
+builder.Services
+    .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.Cookie.Name = "booking.auth";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+        options.ExpireTimeSpan = TimeSpan.FromDays(7);
+
+        // API calls get ProblemDetails, never a redirect to a login page.
+        options.Events.OnRedirectToLogin = context => ProblemWriter.WriteAsync(
+            context.HttpContext, 401, "NOT_SIGNED_IN", "You are not signed in. Pick a user to sign in and try again.");
+        options.Events.OnRedirectToAccessDenied = context => ProblemWriter.WriteAsync(
+            context.HttpContext, 403, "FORBIDDEN", "You are not allowed to do this. Ask an admin if you need access.");
+
+        // Reject a cookie whose user was deleted (demo reset) or whose role changed.
+        options.Events.OnValidatePrincipal = async context =>
+        {
+            var session = context.HttpContext.RequestServices.GetRequiredService<SessionManager>();
+            if (!await session.IsSessionValidAsync(context.Principal))
+            {
+                context.RejectPrincipal();
+                await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            }
+        };
+    });
+builder.Services.AddAuthorization();
+
 var app = builder.Build();
+
+// Apply migrations and seed the demo users (only when there are none) before serving.
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await db.Database.MigrateAsync();
+    await DemoData.SeedIfEmptyAsync(db);
+}
+
+app.UseForwardedHeaders();
+app.UseExceptionHandler();
+
+// Empty error responses under /api (unknown route, 405, 415) get ProblemDetails with a code too.
+app.UseStatusCodePages(context => context.HttpContext.Request.Path.StartsWithSegments("/api")
+    ? ProblemWriter.WriteForStatusAsync(context.HttpContext)
+    : Task.CompletedTask);
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
 
 // Any route that is not /api/... and not a file (nonfile) gets the React app, so client-side routes work on refresh.

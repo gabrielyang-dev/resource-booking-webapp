@@ -1,31 +1,95 @@
 import { useEffect, useState } from "react";
+import { api, ApiError, describeError, setOnNotSignedIn, User } from "./api";
+import { HealthStatus } from "./features/health/HealthStatus";
+import { SignIn } from "./features/session/SignIn";
+import { UsersPage } from "./features/users/UsersPage";
 
-type Health = { api: string; database: string };
+// No routing library: the view is just state.
+type View = "home" | "users";
 
 export function App() {
-  const [message, setMessage] = useState("Checking...");
+  // undefined = still checking the cookie, null = signed out.
+  const [user, setUser] = useState<User | null | undefined>(undefined);
+  const [view, setView] = useState<View>("home");
+  const [notice, setNotice] = useState("");
+
+  function backToPicker() {
+    setUser(null);
+    setView("home");
+  }
 
   useEffect(() => {
-    async function checkHealth() {
+    setOnNotSignedIn(backToPicker);
+    async function checkCookie() {
       try {
-        const response = await fetch("/api/health");
-        const health: Health = await response.json();
-        if (response.ok) {
-          setMessage(`API: ${health.api}, database: ${health.database}`);
-        } else {
-          setMessage(`Unhealthy: API: ${health.api}, database: ${health.database}`);
+        setUser(await api<User>("GET", "/api/me"));
+      } catch (error) {
+        if (!(error instanceof ApiError) || error.status !== 401) {
+          setNotice(describeError(error)[0]);
         }
-      } catch {
-        setMessage("Unhealthy: the API did not answer.");
+        setUser(null);
       }
     }
-    checkHealth();
+    checkCookie();
   }, []);
+
+  async function switchUser() {
+    try {
+      await api("DELETE", "/api/session");
+      setNotice("");
+      backToPicker();
+    } catch (error) {
+      setNotice(describeError(error)[0]);
+    }
+  }
+
+  async function resetDemoData() {
+    if (!window.confirm("Reset demo data? Added users and edits will be lost.")) {
+      return;
+    }
+    try {
+      await api("POST", "/api/demo/reset");
+      setNotice("Demo data was reset.");
+      setView("home");
+    } catch (error) {
+      setNotice(describeError(error)[0]);
+    }
+  }
+
+  function handleSignedIn(signedIn: User) {
+    setNotice("");
+    setUser(signedIn);
+  }
 
   return (
     <main style={{ fontFamily: "sans-serif", margin: "2rem" }}>
-      <h1>Resource booking</h1>
-      <p>{message}</p>
+      <header style={{ display: "flex", gap: "1rem", alignItems: "center", marginBottom: "1rem" }}>
+        <h1 style={{ margin: 0 }}>Resource booking</h1>
+        {user && (
+          <>
+            <span>{user.name} ({user.role})</span>
+            <button onClick={switchUser}>Switch user</button>
+            <button onClick={() => setView("home")}>Home</button>
+            {user.role === "Admin" && (
+              <>
+                <button onClick={() => setView("users")}>Users</button>
+                <button onClick={resetDemoData}>Reset demo data</button>
+              </>
+            )}
+          </>
+        )}
+      </header>
+
+      {notice && <p>{notice}</p>}
+
+      {user === undefined && <p>Loading...</p>}
+      {user === null && <SignIn onSignedIn={handleSignedIn} />}
+      {user && view === "home" && <p>Welcome, {user.name}.</p>}
+      {user && user.role === "Admin" && view === "users" && <UsersPage />}
+
+      <footer style={{ marginTop: "2rem" }}>
+        <HealthStatus />
+      </footer>
     </main>
   );
 }

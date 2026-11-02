@@ -152,7 +152,7 @@ Build order: 01 to 08 in sequence, then 09 to 14 (any order the graph allows), t
 ### 15 Handover
 - **Branch / title:** `docs/handover` · `docs: add walkthrough and architecture notes`
 - **Why:** reviewers need the repo, the live link and a video.
-- **Changes:** README with the live link, demo accounts, how to run locally, an architecture sketch, the data model, and the API list. A link to the walkthrough video.
+- **Changes:** README with the live link, demo accounts, how to run locally, an architecture sketch, the data model, and the API list. A link to the walkthrough video. An "Identity and calendar integration" section explains how this maps to a real Microsoft 365 setup like Resource Central's: Entra ID sign-in (OpenID Connect, users matched on the stable `oid`) replaces only the user picker, while roles, approvers and fulfillers stay in our database; an Exchange (Microsoft Graph) implementation of `ICalendarSync` maps resources to room mailboxes. Neon Auth is noted as the quickest way to switch on real sign-in.
 - **Demo:** a fresh clone runs by following the README alone.
 - **Door:** two-way.
 
