@@ -50,7 +50,7 @@ export function LocationsSection() {
     <div>
       <h3>Locations</h3>
       {errors.map((message) => (
-        <p key={message} style={{ color: "#b00020" }}>{message}</p>
+        <p key={message} className="error">{message}</p>
       ))}
       <table cellPadding={6}>
         <thead>
@@ -117,7 +117,7 @@ function LocationForm({ location, onCancel, onSaved }: FormProps) {
     <form onSubmit={save} style={{ border: "1px solid #ccc", padding: "1rem", maxWidth: "28rem" }}>
       <h4>{location === null ? "Add location" : `Edit ${location.name}`}</h4>
       {errors.map((message) => (
-        <p key={message} style={{ color: "#b00020" }}>{message}</p>
+        <p key={message} className="error">{message}</p>
       ))}
       <p>
         <label>Name<br /><input value={name} onChange={(e) => setName(e.target.value)} /></label>

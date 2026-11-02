@@ -140,6 +140,27 @@ public class RescheduleCancelTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task My_bookings_split_into_upcoming_soonest_first_and_past_newest_first()
+    {
+        await SeedAsync();
+        var alice = await SignedInClientAsync(DemoData.AliceId);
+        var first = await BookAsync(alice, DemoData.RoomAId, 9, 10);
+        var second = await BookAsync(alice, DemoData.RoomBId, 11, 12);
+        var later = await BookAsync(alice, DemoData.RoomAId, 13, 14);
+        // Now it is 12:30 UTC on 10 June: the first two have ended, the third is still to come.
+        Factory.Clock.UtcNow = new DateTime(2030, 6, 10, 12, 30, 0, DateTimeKind.Utc);
+
+        var upcoming = await Json(await alice.GetAsync("/api/bookings?mine=true&when=upcoming"));
+        var past = await Json(await alice.GetAsync("/api/bookings?mine=true&when=past"));
+        var bad = await alice.GetAsync("/api/bookings?mine=true&when=soon");
+
+        Assert.Equal([later.GetProperty("id").GetGuid()], upcoming.GetProperty("items").EnumerateArray().Select(b => b.GetProperty("id").GetGuid()));
+        Assert.Equal([second.GetProperty("id").GetGuid(), first.GetProperty("id").GetGuid()],
+            past.GetProperty("items").EnumerateArray().Select(b => b.GetProperty("id").GetGuid()));
+        Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
+    }
+
+    [Fact]
     public async Task A_member_cannot_change_someone_elses_booking_but_an_admin_can()
     {
         await SeedAsync();

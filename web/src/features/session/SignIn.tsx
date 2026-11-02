@@ -39,17 +39,17 @@ export function SignIn({ onSignedIn }: Props) {
       <h2>Sign in</h2>
       <p>Pick who you want to be. There are no passwords in this demo.</p>
       {errors.map((message) => (
-        <p key={message} style={{ color: "#b00020" }}>{message}</p>
+        <p key={message} className="error">{message}</p>
       ))}
-      <ul>
+      <div className="grid">
         {users.map((user) => (
-          <li key={user.id} style={{ marginBottom: "0.5rem" }}>
-            <button onClick={() => pick(user.id)}>
-              {user.name} ({user.role})
-            </button>
-          </li>
+          <div key={user.id} className="card">
+            <strong>{user.name}</strong>
+            <span className="muted">{user.role === "Admin" ? "Admin: manages the catalogue, rules and insights" : "Member: books resources"}</span>
+            <button className="primary" onClick={() => pick(user.id)}>Sign in as {user.name.split(" ")[0]}</button>
+          </div>
         ))}
-      </ul>
+      </div>
       {lastPage > 1 && (
         <p>
           <button disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</button>{" "}

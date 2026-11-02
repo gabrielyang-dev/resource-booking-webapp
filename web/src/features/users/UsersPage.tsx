@@ -35,7 +35,7 @@ export function UsersPage() {
     <section>
       <h2>Users</h2>
       {errors.map((message) => (
-        <p key={message} style={{ color: "#b00020" }}>{message}</p>
+        <p key={message} className="error">{message}</p>
       ))}
       <table cellPadding={6}>
         <thead>
@@ -102,7 +102,7 @@ function UserForm({ user, onCancel, onSaved }: FormProps) {
     <form onSubmit={save} style={{ border: "1px solid #ccc", padding: "1rem", maxWidth: "24rem" }}>
       <h3>{user === null ? "Add user" : `Edit ${user.name}`}</h3>
       {errors.map((message) => (
-        <p key={message} style={{ color: "#b00020" }}>{message}</p>
+        <p key={message} className="error">{message}</p>
       ))}
       <p>
         <label>Name<br /><input value={name} onChange={(e) => setName(e.target.value)} /></label>

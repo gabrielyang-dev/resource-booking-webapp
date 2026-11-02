@@ -65,43 +65,79 @@ export function App() {
     setUser(signedIn);
   }
 
+  // A nav button that shows which page you are on.
+  function navButton(target: View, label: string) {
+    return (
+      <button className={view === target ? "active" : ""} onClick={() => setView(target)}>{label}</button>
+    );
+  }
+
   return (
-    <main style={{ fontFamily: "sans-serif", margin: "2rem" }}>
-      <header style={{ display: "flex", gap: "1rem", alignItems: "center", marginBottom: "1rem" }}>
-        <h1 style={{ margin: 0 }}>Resource booking</h1>
+    <>
+      <header className="topbar">
+        <h1>Resource booking</h1>
         {user && (
           <>
-            <span>{user.name} ({user.role})</span>
-            <button onClick={switchUser}>Switch user</button>
-            <button onClick={() => setView("home")}>Home</button>
-            <button onClick={() => setView("find")}>Find a resource</button>
-            <button onClick={() => setView("mine")}>My bookings</button>
-            {user.role === "Admin" && (
-              <>
-                <button onClick={() => setView("users")}>Users</button>
-                <button onClick={() => setView("insights")}>Insights</button>
-                <button onClick={() => setView("catalogue")}>Catalogue</button>
-                <button onClick={resetDemoData}>Reset demo data</button>
-              </>
-            )}
+            <nav className="nav">
+              {navButton("home", "Home")}
+              {navButton("find", "Find a resource")}
+              {navButton("mine", "My bookings")}
+              {user.role === "Admin" && (
+                <>
+                  {navButton("insights", "Insights")}
+                  {navButton("catalogue", "Catalogue")}
+                  {navButton("users", "Users")}
+                </>
+              )}
+            </nav>
+            <div className="user-menu">
+              <span>{user.name} · {user.role}</span>
+              {user.role === "Admin" && <button onClick={resetDemoData}>Reset demo data</button>}
+              <button onClick={switchUser}>Switch user</button>
+            </div>
           </>
         )}
       </header>
 
-      {notice && <p>{notice}</p>}
+      <main className="content">
+        {notice && <div className="notice">{notice}</div>}
 
-      {user === undefined && <p>Loading...</p>}
-      {user === null && <SignIn onSignedIn={handleSignedIn} />}
-      {user && view === "home" && <p>Welcome, {user.name}.</p>}
-      {user && view === "find" && <FindResourcePage />}
-      {user && view === "mine" && <MyBookingsPage />}
-      {user && user.role === "Admin" && view === "users" && <UsersPage />}
-      {user && user.role === "Admin" && view === "catalogue" && <CataloguePage />}
-      {user && user.role === "Admin" && view === "insights" && <InsightsPage />}
+        {user === undefined && <p className="muted">Loading...</p>}
+        {user === null && <SignIn onSignedIn={handleSignedIn} />}
+        {user && view === "home" && (
+          <section>
+            <h2>Welcome, {user.name}</h2>
+            <div className="grid">
+              <div className="card">
+                <strong>Book something</strong>
+                <span className="muted">Rooms, desks, the pool car and equipment.</span>
+                <button className="primary" onClick={() => setView("find")}>Find a resource</button>
+              </div>
+              <div className="card">
+                <strong>Your bookings</strong>
+                <span className="muted">Change the time or cancel if plans change.</span>
+                <button onClick={() => setView("mine")}>My bookings</button>
+              </div>
+              {user.role === "Admin" && (
+                <div className="card">
+                  <strong>How space is used</strong>
+                  <span className="muted">Utilisation per resource and the full booking history.</span>
+                  <button onClick={() => setView("insights")}>Insights</button>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+        {user && view === "find" && <FindResourcePage />}
+        {user && view === "mine" && <MyBookingsPage />}
+        {user && user.role === "Admin" && view === "users" && <UsersPage />}
+        {user && user.role === "Admin" && view === "catalogue" && <CataloguePage />}
+        {user && user.role === "Admin" && view === "insights" && <InsightsPage />}
+      </main>
 
-      <footer style={{ marginTop: "2rem" }}>
+      <footer className="footer">
         <HealthStatus />
       </footer>
-    </main>
+    </>
   );
 }

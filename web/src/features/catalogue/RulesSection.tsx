@@ -164,7 +164,7 @@ export function RulesSection() {
           {targetKind === "resource" && <p>Tick a rule to override it for this resource; untick to go back to the type's rule.</p>}
         </>
       )}
-      {errors.map((m) => <p key={m} style={{ color: "#b00020" }}>{m}</p>)}
+      {errors.map((m) => <p key={m} className="error">{m}</p>)}
       {message && <p>{message}</p>}
     </section>
   );

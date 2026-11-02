@@ -58,10 +58,11 @@ export function FindResourcePage() {
   return (
     <section>
       <h2>Find a resource</h2>
+      <p className="muted">Pick a resource to see its day and book it.</p>
       {errors.map((message) => (
-        <p key={message} style={{ color: "#b00020" }}>{message}</p>
+        <p key={message} className="error">{message}</p>
       ))}
-      <p>
+      <div className="row" style={{ marginBottom: "1rem" }}>
         <label>Location{" "}
           <select value={locationId} onChange={(e) => setLocationId(e.target.value)}>
             <option value="">All locations</option>
@@ -74,23 +75,18 @@ export function FindResourcePage() {
             {types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
         </label>
-      </p>
-      <table cellPadding={6}>
-        <thead>
-          <tr><th align="left">Name</th><th align="left">Type</th><th align="left">Location</th><th align="left">Capacity</th></tr>
-        </thead>
-        <tbody>
-          {resources.map((r) => (
-            <tr key={r.id}>
-              <td><button onClick={() => setSelected(r)}>{r.name}</button></td>
-              <td>{r.resourceTypeName}</td>
-              <td>{r.locationName}</td>
-              <td>{r.capacity ?? "-"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {resources.length === 0 && <p>No resources match these filters.</p>}
+      </div>
+      <div className="grid">
+        {resources.map((r) => (
+          <div key={r.id} className="card">
+            <strong>{r.name}</strong>
+            <span className="muted">{r.resourceTypeName} · {r.locationName}</span>
+            <span className="muted">{r.capacity ? `Up to ${r.capacity} ${r.capacity === 1 ? "person" : "people"}` : "No people limit"}</span>
+            <button className="primary" onClick={() => setSelected(r)}>See the day and book</button>
+          </div>
+        ))}
+      </div>
+      {resources.length === 0 && <p className="empty">No resources match these filters. Try another location or type.</p>}
       <p>
         <button disabled={page <= 1} onClick={() => load(page - 1)}>Previous</button>{" "}
         Page {page} of {lastPage} ({totalCount} resources){" "}

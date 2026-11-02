@@ -46,3 +46,33 @@ export function formatDate(iso: string, timeZone: string): string {
 export function todayIn(timeZone: string): string {
   return new Date().toLocaleDateString("en-CA", { timeZone });
 }
+
+// "09:30" -> 570 minutes after midnight, and back.
+export function toMinutes(time: string): number {
+  const [hour, minute] = time.split(":").map(Number);
+  return hour * 60 + minute;
+}
+
+export function fromMinutes(minutes: number): string {
+  const clamped = Math.max(0, Math.min(24 * 60 - 1, minutes));
+  return `${String(Math.floor(clamped / 60)).padStart(2, "0")}:${String(clamped % 60).padStart(2, "0")}`;
+}
+
+// The local yyyy-mm-dd of a UTC instant in the zone.
+export function localDate(iso: string, timeZone: string): string {
+  return new Date(iso).toLocaleDateString("en-CA", { timeZone });
+}
+
+// "Mon".."Sun" for a yyyy-mm-dd date, matching the rule settings.
+export function dayName(date: string): string {
+  return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][new Date(date + "T12:00:00Z").getUTCDay()];
+}
+
+// The date itself on a weekday, otherwise the following Monday.
+export function weekdayFrom(date: string): string {
+  let d = new Date(date + "T12:00:00Z");
+  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) {
+    d = new Date(d.getTime() + 24 * 60 * 60 * 1000);
+  }
+  return d.toISOString().slice(0, 10);
+}
