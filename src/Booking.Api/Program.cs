@@ -1,5 +1,6 @@
 using Booking.Api.Abstractions;
 using Booking.Api.Errors;
+using Booking.Api.Features.Catalog;
 using Booking.Api.Features.Demo;
 using Booking.Api.Features.Session;
 using Booking.Api.Features.Users;
@@ -30,6 +31,9 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddScoped<SessionManager>();
 builder.Services.AddScoped<UsersManager>();
+builder.Services.AddScoped<LocationsManager>();
+builder.Services.AddScoped<ResourceTypesManager>();
+builder.Services.AddScoped<ResourcesManager>();
 builder.Services.AddScoped<DemoManager>();
 
 // Errors that MVC builds itself (415, 405, ...) get a code too; ApiExceptionHandler covers thrown errors.

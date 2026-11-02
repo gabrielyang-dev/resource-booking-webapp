@@ -6,6 +6,20 @@ export type User = { id: string; name: string; email: string; role: Role };
 export type PickerUser = { id: string; name: string; role: Role };
 export type Paged<T> = { items: T[]; page: number; pageSize: number; totalCount: number };
 
+export type Location = { id: string; name: string; timeZone: string };
+export type ResourceType = { id: string; name: string };
+export type Resource = {
+  id: string;
+  locationId: string;
+  locationName: string;
+  timeZone: string;
+  resourceTypeId: string;
+  resourceTypeName: string;
+  name: string;
+  capacity: number | null;
+  active: boolean;
+};
+
 export class ApiError extends Error {
   status: number;
   code: string;
@@ -53,13 +67,12 @@ export async function api<T>(method: string, path: string, body?: unknown): Prom
   );
 }
 
-// Field errors as one readable line each, e.g. "email: Enter a valid email address."
+// Field errors as plain sentences, e.g. "Enter a valid email address, such as name@example.com."
+// The server writes each message so it makes sense without the field name.
 export function describeError(error: unknown): string[] {
   if (error instanceof ApiError) {
-    const fields = Object.entries(error.errors).flatMap(([field, messages]) =>
-      messages.map((message) => `${field}: ${message}`),
-    );
-    return fields.length > 0 ? fields : [error.message];
+    const messages = Object.values(error.errors).flat();
+    return messages.length > 0 ? [...new Set(messages)] : [error.message];
   }
   return ["Something went wrong. Try again."];
 }

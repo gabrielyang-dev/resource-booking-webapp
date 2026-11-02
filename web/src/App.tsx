@@ -3,9 +3,11 @@ import { api, ApiError, describeError, setOnNotSignedIn, User } from "./api";
 import { HealthStatus } from "./features/health/HealthStatus";
 import { SignIn } from "./features/session/SignIn";
 import { UsersPage } from "./features/users/UsersPage";
+import { CataloguePage } from "./features/catalogue/CataloguePage";
+import { FindResourcePage } from "./features/catalogue/FindResourcePage";
 
 // No routing library: the view is just state.
-type View = "home" | "users";
+type View = "home" | "find" | "users" | "catalogue";
 
 export function App() {
   // undefined = still checking the cookie, null = signed out.
@@ -44,7 +46,7 @@ export function App() {
   }
 
   async function resetDemoData() {
-    if (!window.confirm("Reset demo data? Added users and edits will be lost.")) {
+    if (!window.confirm("Reset demo data? Added users, catalogue changes and edits will be lost.")) {
       return;
     }
     try {
@@ -70,9 +72,11 @@ export function App() {
             <span>{user.name} ({user.role})</span>
             <button onClick={switchUser}>Switch user</button>
             <button onClick={() => setView("home")}>Home</button>
+            <button onClick={() => setView("find")}>Find a resource</button>
             {user.role === "Admin" && (
               <>
                 <button onClick={() => setView("users")}>Users</button>
+                <button onClick={() => setView("catalogue")}>Catalogue</button>
                 <button onClick={resetDemoData}>Reset demo data</button>
               </>
             )}
@@ -85,7 +89,9 @@ export function App() {
       {user === undefined && <p>Loading...</p>}
       {user === null && <SignIn onSignedIn={handleSignedIn} />}
       {user && view === "home" && <p>Welcome, {user.name}.</p>}
+      {user && view === "find" && <FindResourcePage />}
       {user && user.role === "Admin" && view === "users" && <UsersPage />}
+      {user && user.role === "Admin" && view === "catalogue" && <CataloguePage />}
 
       <footer style={{ marginTop: "2rem" }}>
         <HealthStatus />
