@@ -8,3 +8,6 @@ services:
       # Paste the Neon connection string (Npgsql format) in the Render dashboard.
       - key: ConnectionStrings__Default
         sync: false
+      # Optional: switches on natural-language search. The model is OpenAI:Model in appsettings.json.
+      - key: OpenAI__ApiKey
+        sync: false
