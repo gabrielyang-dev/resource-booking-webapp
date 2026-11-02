@@ -1,0 +1,394 @@
+/* One hand-written stylesheet. Element defaults style every page; the few classes below add layout. */
+
+:root {
+  --ink: #1d2433;
+  --muted: #5f6b7a;
+  --line: #dde2ea;
+  --surface: #ffffff;
+  --page: #f4f6fa;
+  --brand: #2f5fd0;
+  --brand-dark: #234aa6;
+  --danger: #b42318;
+  --danger-bg: #fdecea;
+  --ok: #18794e;
+  --ok-bg: #e7f6ee;
+  --warn-bg: #fff6e0;
+  --radius: 8px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--ink);
+  background: var(--page);
+}
+
+body {
+  margin: 0;
+}
+
+h1, h2, h3 {
+  line-height: 1.2;
+}
+
+h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.5rem;
+}
+
+h3 {
+  margin: 1.5rem 0 0.5rem;
+  font-size: 1.1rem;
+}
+
+/* ---------- Layout ---------- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.75rem 2rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--brand);
+}
+
+.nav {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.nav button {
+  background: none;
+  border: none;
+  color: var(--muted);
+  padding: 0.45rem 0.75rem;
+}
+
+.nav button:hover {
+  background: var(--page);
+  color: var(--ink);
+}
+
+.nav button.active {
+  background: #e8eefc;
+  color: var(--brand-dark);
+  font-weight: 600;
+}
+
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--muted);
+}
+
+.content {
+  max-width: 1100px;
+  margin: 1.5rem auto;
+  padding: 0 2rem;
+}
+
+.footer {
+  max-width: 1100px;
+  margin: 2rem auto;
+  padding: 0 2rem;
+  color: var(--muted);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 1rem;
+}
+
+.grid .card {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+/* ---------- Controls ---------- */
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 0.4rem 0.8rem;
+}
+
+button:hover:not(:disabled) {
+  border-color: #b9c2d0;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+button.primary,
+button[type="submit"] {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: white;
+}
+
+button.primary:hover:not(:disabled),
+button[type="submit"]:hover:not(:disabled) {
+  background: var(--brand-dark);
+}
+
+button.danger {
+  color: var(--danger);
+}
+
+button.link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--brand);
+  font-weight: 600;
+}
+
+label {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  color: var(--ink);
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+input:focus,
+select:focus,
+button:focus-visible {
+  outline: 2px solid #9db6f0;
+  outline-offset: 1px;
+}
+
+/* A checkbox label reads left to right, not stacked. */
+label:has(> input[type="checkbox"]) {
+  flex-direction: row;
+  align-items: center;
+  color: var(--ink);
+}
+
+/* ---------- Tables ---------- */
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+th {
+  text-align: left;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  background: #f8f9fc;
+}
+
+th,
+td {
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+/* ---------- Messages ---------- */
+
+.error,
+.success,
+.notice {
+  padding: 0.6rem 0.9rem;
+  border-radius: 6px;
+  margin: 0.5rem 0;
+}
+
+.error {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.success {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.notice {
+  background: var(--warn-bg);
+}
+
+.empty {
+  padding: 1.25rem;
+  text-align: center;
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+/* ---------- Status badges ---------- */
+
+.badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: #eef0f4;
+  color: var(--muted);
+}
+
+.badge.Confirmed,
+.badge.CheckedIn {
+  background: #e8eefc;
+  color: var(--brand-dark);
+}
+
+.badge.Completed {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.badge.Pending {
+  background: var(--warn-bg);
+  color: #8a5a00;
+}
+
+.badge.Cancelled,
+.badge.Rejected,
+.badge.Released {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+/* ---------- Utilisation bar ---------- */
+
+.bar {
+  display: inline-block;
+  width: 160px;
+  height: 10px;
+  background: #e5e9f0;
+  border-radius: 999px;
+  overflow: hidden;
+  vertical-align: middle;
+  margin-right: 0.5rem;
+}
+
+.bar > span {
+  display: block;
+  height: 100%;
+  background: var(--brand);
+}
+
+/* ---------- Day timeline ---------- */
+
+.timeline {
+  position: relative;
+  height: 64px;
+  margin: 1.75rem 0 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+/* Hours outside opening hours are shaded. */
+.timeline .closed {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(45deg, #f1f3f7, #f1f3f7 6px, #e8ebf1 6px, #e8ebf1 12px);
+}
+
+.timeline .hour {
+  position: absolute;
+  top: -1.4rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  transform: translateX(-50%);
+}
+
+.timeline .tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid #eef0f4;
+}
+
+.timeline .block {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  border-radius: 6px;
+  background: #c9d6f5;
+  border: 1px solid #9db0e4;
+  color: var(--brand-dark);
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  overflow: hidden;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.timeline .selection {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  border: 2px dashed var(--brand);
+  border-radius: 6px;
+  background: rgba(47, 95, 208, 0.08);
+  pointer-events: none;
+}
+
+.timeline .selection.clash {
+  border-color: var(--danger);
+  background: rgba(180, 35, 24, 0.08);
+}

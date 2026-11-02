@@ -22,5 +22,5 @@ export function HealthStatus() {
     checkHealth();
   }, []);
 
-  return <small style={{ color: "#666" }}>{message}</small>;
+  return <small>{message}</small>;
 }

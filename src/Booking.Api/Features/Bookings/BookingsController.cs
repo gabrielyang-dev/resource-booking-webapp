@@ -52,8 +52,8 @@ public class BookingsController : ControllerBase
 
     [HttpGet("api/bookings")]
     public async Task<PagedResponse<BookingResponse>> ListMine(
-        [FromQuery] bool mine = true, [FromQuery] int page = 1, [FromQuery] int pageSize = 20) =>
-        await _bookings.ListMineAsync(_currentUser.Id, mine, page, pageSize);
+        [FromQuery] bool mine = true, [FromQuery] string? when = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 20) =>
+        await _bookings.ListMineAsync(_currentUser.Id, mine, when, page, pageSize);
 
     [HttpGet("api/resources/{resourceId:guid}/bookings")]
     public async Task<IReadOnlyList<ResourceBookingResponse>> ListForResource(

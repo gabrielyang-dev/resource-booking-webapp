@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, describeError, Booking, Paged, Resource, User } from "../../api";
 import { formatDate, formatTime } from "../../time";
+import { StatusBadge } from "../../ui";
 
 type ResourceUtilisation = {
   resourceId: string;
@@ -17,11 +18,12 @@ type Utilisation = { from: string; to: string; resources: ResourceUtilisation[];
 const statuses = ["Pending", "Confirmed", "CheckedIn", "Completed", "Cancelled", "Rejected", "Released"];
 const pageSize = 20;
 
-// Monday and Sunday of the current week, as yyyy-mm-dd.
-function thisWeek(): { from: string; to: string } {
+// Monday to Sunday of the week weeksAgo weeks back (0 = this week), as yyyy-mm-dd; spanWeeks long.
+function weeks(weeksAgo: number, spanWeeks = 1): { from: string; to: string } {
   const today = new Date();
-  const monday = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate() - ((today.getDay() + 6) % 7)));
-  const sunday = new Date(monday.getTime() + 6 * 24 * 60 * 60 * 1000);
+  const day = 24 * 60 * 60 * 1000;
+  const monday = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate() - ((today.getDay() + 6) % 7)) - weeksAgo * 7 * day);
+  const sunday = new Date(monday.getTime() + (spanWeeks * 7 - 1) * day);
   return { from: monday.toISOString().slice(0, 10), to: sunday.toISOString().slice(0, 10) };
 }
 
@@ -32,16 +34,16 @@ function percent(fraction: number): string {
 // A plain CSS bar: no chart library needed.
 function Bar({ fraction }: { fraction: number }) {
   return (
-    <div style={{ width: 160, height: 12, background: "#e5e5e5" }}>
-      <div style={{ width: `${Math.min(100, fraction * 100)}%`, height: "100%", background: "#2f6fdf" }} />
-    </div>
+    <span className="bar">
+      <span style={{ width: `${Math.min(100, fraction * 100)}%` }} />
+    </span>
   );
 }
 
 // Admin: how much each resource is used, and every booking ever made.
 export function InsightsPage() {
-  const [from, setFrom] = useState(thisWeek().from);
-  const [to, setTo] = useState(thisWeek().to);
+  const [from, setFrom] = useState(weeks(1).from);
+  const [to, setTo] = useState(weeks(1).to);
   const [utilisation, setUtilisation] = useState<Utilisation | null>(null);
   const [resources, setResources] = useState<Resource[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -95,14 +97,17 @@ export function InsightsPage() {
   return (
     <section>
       <h2>Insights</h2>
-      {errors.map((m) => <p key={m} style={{ color: "#b00020" }}>{m}</p>)}
+      {errors.map((m) => <p key={m} className="error">{m}</p>)}
 
       <h3>Utilisation</h3>
       <p>Booked hours divided by open hours. Open hours follow each resource's opening-hours rule, or 24 hours a day if it has none.</p>
-      <p>
-        <label>From <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>{" "}
+      <div className="row" style={{ marginBottom: "0.75rem" }}>
+        <label>From <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
         <label>To <input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
-      </p>
+        <button onClick={() => { setFrom(weeks(0).from); setTo(weeks(0).to); }}>This week</button>
+        <button onClick={() => { setFrom(weeks(1).from); setTo(weeks(1).to); }}>Last week</button>
+        <button onClick={() => { setFrom(weeks(4, 4).from); setTo(weeks(1).to); }}>Last 4 weeks</button>
+      </div>
       {utilisation && (
         <>
           <table cellPadding={6}>
@@ -167,7 +172,7 @@ export function InsightsPage() {
                   <td>{formatTime(b.start, b.timeZone)} to {formatTime(b.end, b.timeZone)}</td>
                   <td>{b.resourceName}</td>
                   <td>{b.ownerName}</td>
-                  <td>{b.status}</td>
+                  <td><StatusBadge status={b.status} /></td>
                 </tr>
               ))}
             </tbody>

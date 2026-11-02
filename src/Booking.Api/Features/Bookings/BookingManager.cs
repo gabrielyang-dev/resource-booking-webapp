@@ -217,7 +217,8 @@ public class BookingManager
     private static ApiException BookingNotFound() =>
         ApiException.NotFound("There is no booking with that id. Check the id and try again.");
 
-    public Task<PagedResponse<BookingResponse>> ListMineAsync(Guid userId, bool mine, int page, int pageSize)
+    // when: "upcoming" (not ended yet, soonest first), "past" (ended, most recent first), or empty for all (oldest first).
+    public Task<PagedResponse<BookingResponse>> ListMineAsync(Guid userId, bool mine, string? when, int page, int pageSize)
     {
         if (!mine)
         {
@@ -226,9 +227,15 @@ public class BookingManager
                 ["mine"] = ["Only your own bookings can be listed for now. Use mine=true."],
             });
         }
-        var query = WithDetails().AsNoTracking()
-            .Where(b => b.OwnerId == userId)
-            .OrderBy(b => b.Start).ThenBy(b => b.Id);
+        var now = _clock.UtcNow;
+        var mineQuery = WithDetails().AsNoTracking().Where(b => b.OwnerId == userId);
+        var query = when switch
+        {
+            null or "" => mineQuery.OrderBy(b => b.Start).ThenBy(b => b.Id),
+            "upcoming" => mineQuery.Where(b => b.End > now).OrderBy(b => b.Start).ThenBy(b => b.Id),
+            "past" => mineQuery.Where(b => b.End <= now).OrderByDescending(b => b.Start).ThenBy(b => b.Id),
+            _ => throw ApiException.Invalid(new() { ["when"] = ["Use when=upcoming or when=past, or leave it out."] }),
+        };
         return Paging.ToPageAsync(query, page, pageSize, BookingResponse.From);
     }
 
