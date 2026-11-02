@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: resource-booking
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      # Paste the Neon connection string (Npgsql format) in the Render dashboard.
+      - key: ConnectionStrings__Default
+        sync: false
