@@ -1,5 +1,6 @@
 using Booking.Api.Abstractions;
 using Booking.Api.Errors;
+using Booking.Api.Features.AddOns;
 using Booking.Api.Features.Bookings;
 using Booking.Api.Features.Catalog;
 using Booking.Api.Features.Demo;
@@ -42,12 +43,15 @@ builder.Services.AddScoped<ResourceTypesManager>();
 builder.Services.AddScoped<ResourcesManager>();
 builder.Services.AddScoped<BookingManager>();
 builder.Services.AddScoped<BookingJudge>();
+builder.Services.AddScoped<AddOnsManager>();
 builder.Services.AddScoped<RulesManager>();
 builder.Services.AddScoped<InsightsManager>();
 
 // The rule engine runs every always-on check and every configurable rule registered here.
 builder.Services.AddSingleton<IBookingCheck, ValidTimeRangeCheck>();
 builder.Services.AddSingleton<IBookingCheck, CapacityCheck>();
+builder.Services.AddSingleton<IBookingCheck, AddOnLeadTimeCheck>();
+builder.Services.AddSingleton<IBookingCheck, AddOnHoursCheck>();
 builder.Services.AddSingleton<IBookingRule, OpeningHoursRule>();
 builder.Services.AddSingleton<IBookingRule, MaxDurationRule>();
 builder.Services.AddSingleton<IBookingRule, BookingWindowRule>();

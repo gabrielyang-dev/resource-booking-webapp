@@ -22,4 +22,7 @@ public class Booking
     public string? IdempotencyKey { get; set; }
 
     public DateTime CreatedAt { get; set; }
+
+    // Add-ons ordered for this booking, in any status.
+    public List<AddOnOrder> AddOnOrders { get; set; } = [];
 }

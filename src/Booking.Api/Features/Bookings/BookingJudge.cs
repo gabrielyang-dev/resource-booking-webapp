@@ -31,17 +31,18 @@ public class BookingJudge
     }
 
     // Every check and every effective rule for the resource, judged for the owner. Empty when allowed.
-    public async Task<List<Violation>> CheckRulesAsync(Resource resource, Guid ownerId, TimeRange range, int? attendees, Guid? excludeBookingId)
+    public async Task<List<Violation>> CheckRulesAsync(
+        Resource resource, Guid ownerId, TimeRange range, int? attendees, IReadOnlyList<OrderedAddOn> addOns, Guid? excludeBookingId)
     {
         var settings = await _rules.GetEffectiveAsync(resource.Id, resource.ResourceTypeId);
         var others = await LoadOwnerBookingsAsync(ownerId, resource.ResourceTypeId, range, excludeBookingId);
-        return _engine.Evaluate(Candidate(resource, ownerId, range, attendees, others), settings);
+        return _engine.Evaluate(Candidate(resource, ownerId, range, attendees, others, addOns), settings);
     }
 
     // Up to 3 valid times on the same resource (same length, same local day, nearest first)
     // and up to 3 other resources of the same type and location that are free at the requested time.
     public async Task<List<AlternativeResponse>> FindAlternativesAsync(
-        Resource resource, Guid ownerId, TimeRange range, int? attendees, Guid? excludeBookingId)
+        Resource resource, Guid ownerId, TimeRange range, int? attendees, IReadOnlyList<OrderedAddOn> addOns, Guid? excludeBookingId)
     {
         var alternatives = new List<AlternativeResponse>();
         if (range.End <= range.Start)
@@ -58,7 +59,7 @@ public class BookingJudge
         var taken = await LoadHoldingAsync([resource.Id], day, excludeBookingId);
         var times = AlternativeTimes.Find(range, day, Step, MaxAlternatives, candidate =>
             !taken.Any(t => t.Range.Overlaps(candidate))
-            && _engine.Evaluate(Candidate(resource, ownerId, candidate, attendees, others), settings).Count == 0);
+            && _engine.Evaluate(Candidate(resource, ownerId, candidate, attendees, others, addOns), settings).Count == 0);
         alternatives.AddRange(times.Select(t => new AlternativeResponse(resource.Id, resource.Name, t.Start, t.End)));
 
         // Other resources, same time.
@@ -67,7 +68,7 @@ public class BookingJudge
                 && r.ResourceTypeId == resource.ResourceTypeId && r.LocationId == resource.LocationId)
             .OrderBy(r => r.Name).ThenBy(r => r.Id)
             .ToListAsync();
-        alternatives.AddRange((await FilterFreeAsync(siblings, ownerId, range, attendees, others, MaxAlternatives))
+        alternatives.AddRange((await FilterFreeAsync(siblings, ownerId, range, attendees, others, addOns, MaxAlternatives))
             .Select(r => new AlternativeResponse(r.Id, r.Name, range.Start, range.End)));
         return alternatives;
     }
@@ -85,13 +86,14 @@ public class BookingJudge
         foreach (var group in resources.GroupBy(r => r.ResourceTypeId))
         {
             var others = await LoadOwnerBookingsAsync(ownerId, group.Key, range, null);
-            free.AddRange(await FilterFreeAsync(group.ToList(), ownerId, range, attendees, others, int.MaxValue));
+            free.AddRange(await FilterFreeAsync(group.ToList(), ownerId, range, attendees, others, [], int.MaxValue));
         }
         return free.OrderBy(r => r.Name).ThenBy(r => r.Id).ToList();
     }
 
     private async Task<List<Resource>> FilterFreeAsync(
-        List<Resource> resources, Guid ownerId, TimeRange range, int? attendees, List<TimeRange> ownerOthers, int max)
+        List<Resource> resources, Guid ownerId, TimeRange range, int? attendees, List<TimeRange> ownerOthers,
+        IReadOnlyList<OrderedAddOn> addOns, int max)
     {
         var taken = await LoadHoldingAsync(resources.Select(r => r.Id).ToList(), range, null);
         var free = new List<Resource>();
@@ -106,7 +108,7 @@ public class BookingJudge
                 continue;
             }
             var settings = await _rules.GetEffectiveAsync(resource.Id, resource.ResourceTypeId);
-            if (_engine.Evaluate(Candidate(resource, ownerId, range, attendees, ownerOthers), settings).Count == 0)
+            if (_engine.Evaluate(Candidate(resource, ownerId, range, attendees, ownerOthers, addOns), settings).Count == 0)
             {
                 free.Add(resource);
             }
@@ -138,6 +140,7 @@ public class BookingJudge
             .ToListAsync();
     }
 
-    private BookingCandidate Candidate(Resource resource, Guid ownerId, TimeRange range, int? attendees, List<TimeRange> ownerOthers) =>
-        new(resource.Name, resource.Capacity, resource.Location.TimeZone, ownerId, range, attendees, _clock.UtcNow, ownerOthers);
+    private BookingCandidate Candidate(
+        Resource resource, Guid ownerId, TimeRange range, int? attendees, List<TimeRange> ownerOthers, IReadOnlyList<OrderedAddOn> addOns) =>
+        new(resource.Name, resource.Capacity, resource.Location.TimeZone, ownerId, range, attendees, _clock.UtcNow, ownerOthers, addOns);
 }

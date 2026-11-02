@@ -28,6 +28,9 @@ public static class DemoData
     public static readonly Guid PoolCarId = Guid.Parse("cccccccc-0000-0000-0000-000000000007");
     public static readonly Guid ProjectorId = Guid.Parse("cccccccc-0000-0000-0000-000000000008");
 
+    public static readonly Guid SandwichesId = Guid.Parse("dddddddd-0000-0000-0000-000000000001");
+    public static readonly Guid CoffeeId = Guid.Parse("dddddddd-0000-0000-0000-000000000002");
+
     // Runs at startup. Seeds the users when there are none, and the catalogue when there is none
     // (so a database created before the catalogue existed gets it too).
     public static async Task SeedIfEmptyAsync(AppDbContext db, DateTime nowUtc)
@@ -46,6 +49,13 @@ public static class DemoData
         if (!await db.RuleSettings.AnyAsync() && await db.ResourceTypes.AnyAsync(t => t.Id == MeetingRoomTypeId))
         {
             AddSeedRules(db);
+            await db.SaveChangesAsync();
+        }
+
+        // Add-ons came later too: the seed location with no add-ons gets the catering ones.
+        if (!await db.AddOns.AnyAsync() && await db.Locations.AnyAsync(l => l.Id == LondonId))
+        {
+            AddSeedAddOns(db);
             await db.SaveChangesAsync();
         }
 
@@ -86,9 +96,12 @@ public static class DemoData
         // Taking these locks first makes the second reset wait, then run on the already clean tables.
         // One statement, always in this order, so two resets cannot lock in opposite orders and deadlock.
         await db.Database.ExecuteSqlRawAsync(
-            "LOCK TABLE \"Users\", \"Locations\", \"ResourceTypes\", \"Resources\", \"Bookings\", \"RuleSettings\" IN EXCLUSIVE MODE");
+            "LOCK TABLE \"Users\", \"Locations\", \"ResourceTypes\", \"Resources\", \"Bookings\", \"RuleSettings\", " +
+            "\"AddOns\", \"AddOnOrders\" IN EXCLUSIVE MODE");
         // Children before parents, because the foreign keys restrict deletes.
+        await db.AddOnOrders.ExecuteDeleteAsync();
         await db.Bookings.ExecuteDeleteAsync();
+        await db.AddOns.ExecuteDeleteAsync();
         await db.RuleSettings.ExecuteDeleteAsync();
         await db.Resources.ExecuteDeleteAsync();
         await db.Locations.ExecuteDeleteAsync();
@@ -98,6 +111,7 @@ public static class DemoData
         AddSeedUsers(db);
         AddSeedCatalogue(db);
         AddSeedRules(db);
+        AddSeedAddOns(db);
         if (nowUtc is not null)
         {
             db.Bookings.AddRange(DemoBookings.Create(nowUtc.Value));
@@ -152,4 +166,20 @@ public static class DemoData
 
     private static RuleSetting TypeRule<T>(Guid typeId, RuleKind kind, T settings) =>
         new() { Id = Guid.NewGuid(), ResourceTypeId = typeId, Kind = kind, Settings = RuleSettings.ToJson(settings) };
+
+    // Catering for the London office. Ada delivers it (fulfillers are users, not a role).
+    private static void AddSeedAddOns(AppDbContext db)
+    {
+        db.AddOns.AddRange(
+            new AddOn
+            {
+                Id = SandwichesId, LocationId = LondonId, Name = "Sandwiches", LeadTimeMinutes = 24 * 60,
+                AvailableFrom = new TimeOnly(8, 0), AvailableUntil = new TimeOnly(15, 0), FulfillerId = AdminId,
+            },
+            new AddOn
+            {
+                Id = CoffeeId, LocationId = LondonId, Name = "Coffee service", LeadTimeMinutes = 120,
+                AvailableFrom = new TimeOnly(7, 0), AvailableUntil = new TimeOnly(17, 0), FulfillerId = AdminId,
+            });
+    }
 }

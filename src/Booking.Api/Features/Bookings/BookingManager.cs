@@ -4,6 +4,7 @@ using Booking.Api.Errors;
 using Booking.Api.Features.Catalog;
 using Booking.Api.Features.Shared;
 using Booking.Api.Infrastructure;
+using Booking.Api.Rules;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
@@ -46,7 +47,8 @@ public class BookingManager
         }
 
         var resource = await LoadBookableResourceAsync(resourceId);
-        await EnforceRulesAsync(resource, ownerId, range, request.Attendees, excludeBookingId: null);
+        var addOns = await LoadAddOnsAsync(request.AddOns, resource);
+        await EnforceRulesAsync(resource, ownerId, range, request.Attendees, addOns, excludeBookingId: null);
 
         var clash = await FindClashAsync(resourceId, range, excludeBookingId: null);
         if (clash is not null)
@@ -57,7 +59,7 @@ public class BookingManager
             {
                 return new CreateBookingResult(replay, Created: false);
             }
-            throw await WithAlternativesAsync(SlotTaken(resource, clash), resource, ownerId, range, request.Attendees, excludeBookingId: null);
+            throw await WithAlternativesAsync(SlotTaken(resource, clash), resource, ownerId, range, request.Attendees, addOns, excludeBookingId: null);
         }
 
         var booking = new Domain.Booking
@@ -71,6 +73,7 @@ public class BookingManager
             Attendees = request.Attendees,
             IdempotencyKey = key,
             CreatedAt = _clock.UtcNow,
+            AddOnOrders = addOns.Select(NewOrder).ToList(),
         };
         _db.Bookings.Add(booking);
 
@@ -130,7 +133,8 @@ public class BookingManager
         }
         var (resourceId, range) = Validate(new BookingRequest(request.ResourceId, request.Start, request.End, request.Attendees), null);
 
-        var booking = await _db.Bookings.FirstOrDefaultAsync(b => b.Id == id) ?? throw BookingNotFound();
+        var booking = await _db.Bookings.Include(b => b.AddOnOrders).ThenInclude(o => o.AddOn)
+            .FirstOrDefaultAsync(b => b.Id == id) ?? throw BookingNotFound();
         EnsureCanChange(booking, userId, isAdmin);
         if (booking.Version != request.Version)
         {
@@ -143,18 +147,32 @@ public class BookingManager
         }
 
         var resource = await LoadBookableResourceAsync(resourceId);
+        // No add-on list means "keep the current orders"; they are checked again for the new time.
+        var keepOrders = request.AddOns is null;
+        var addOns = keepOrders
+            ? KeptAddOns(booking, resource)
+            : await LoadAddOnsAsync(request.AddOns, resource);
         // Every rule runs again, for the owner (not the admin who may be moving it), ignoring the booking itself.
-        await EnforceRulesAsync(resource, booking.OwnerId, range, request.Attendees, excludeBookingId: id);
+        await EnforceRulesAsync(resource, booking.OwnerId, range, request.Attendees, addOns, excludeBookingId: id);
         var clash = await FindClashAsync(resourceId, range, excludeBookingId: id);
         if (clash is not null)
         {
-            throw await WithAlternativesAsync(SlotTaken(resource, clash), resource, booking.OwnerId, range, request.Attendees, excludeBookingId: id);
+            throw await WithAlternativesAsync(SlotTaken(resource, clash), resource, booking.OwnerId, range, request.Attendees, addOns, excludeBookingId: id);
         }
 
         booking.ResourceId = resourceId;
         booking.Start = range.Start;
         booking.End = range.End;
         booking.Attendees = request.Attendees;
+        if (!keepOrders)
+        {
+            // A new list replaces the orders not yet delivered; the old ones stay as Cancelled for the record.
+            foreach (var order in booking.AddOnOrders.Where(o => o.Status == AddOnOrderStatus.Requested))
+            {
+                order.Status = AddOnOrderStatus.Cancelled;
+            }
+            booking.AddOnOrders.AddRange(addOns.Select(NewOrder));
+        }
         // Version is a concurrency token: the UPDATE only matches if nobody changed the row since we read it.
         booking.Version++;
 
@@ -180,11 +198,20 @@ public class BookingManager
         var booking = await _db.Bookings.AsNoTracking().FirstOrDefaultAsync(b => b.Id == id) ?? throw BookingNotFound();
         EnsureCanChange(booking, userId, isAdmin);
 
+        // The booking and its undelivered add-on orders are cancelled together, or not at all.
+        await using var transaction = await _db.Database.BeginTransactionAsync();
         var updated = await _db.Bookings
             .Where(b => b.Id == id && HoldingStatuses.Contains(b.Status))
             .ExecuteUpdateAsync(s => s
                 .SetProperty(b => b.Status, BookingStatus.Cancelled)
                 .SetProperty(b => b.Version, b => b.Version + 1));
+        if (updated == 1)
+        {
+            await _db.AddOnOrders
+                .Where(o => o.BookingId == id && o.Status == AddOnOrderStatus.Requested)
+                .ExecuteUpdateAsync(s => s.SetProperty(o => o.Status, AddOnOrderStatus.Cancelled));
+        }
+        await transaction.CommitAsync();
 
         if (updated == 0)
         {
@@ -276,7 +303,8 @@ public class BookingManager
     }
 
     private IQueryable<Domain.Booking> WithDetails() =>
-        _db.Bookings.Include(b => b.Resource).ThenInclude(r => r.Location).Include(b => b.Owner);
+        _db.Bookings.Include(b => b.Resource).ThenInclude(r => r.Location).Include(b => b.Owner)
+            .Include(b => b.AddOnOrders).ThenInclude(o => o.AddOn);
 
     private async Task<BookingResponse> GetAsync(Guid id)
     {
@@ -316,21 +344,80 @@ public class BookingManager
 
     // Runs every check and the resource's effective rules; throws one 422 listing every problem,
     // with the nearest valid alternatives so a rejection is never a dead end.
-    private async Task EnforceRulesAsync(Resource resource, Guid ownerId, TimeRange range, int? attendees, Guid? excludeBookingId)
+    private async Task EnforceRulesAsync(
+        Resource resource, Guid ownerId, TimeRange range, int? attendees, List<(AddOn AddOn, int Quantity)> addOns, Guid? excludeBookingId)
     {
-        var violations = await _judge.CheckRulesAsync(resource, ownerId, range, attendees, excludeBookingId);
+        var violations = await _judge.CheckRulesAsync(resource, ownerId, range, attendees, ToOrdered(addOns), excludeBookingId);
         if (violations.Count > 0)
         {
-            throw await WithAlternativesAsync(ApiException.RuleViolation(violations), resource, ownerId, range, attendees, excludeBookingId);
+            throw await WithAlternativesAsync(ApiException.RuleViolation(violations), resource, ownerId, range, attendees, addOns, excludeBookingId);
         }
     }
 
-    private async Task<ApiException> WithAlternativesAsync(
-        ApiException exception, Resource resource, Guid ownerId, TimeRange range, int? attendees, Guid? excludeBookingId)
+    private async Task<ApiException> WithAlternativesAsync(ApiException exception,
+        Resource resource, Guid ownerId, TimeRange range, int? attendees, List<(AddOn AddOn, int Quantity)> addOns, Guid? excludeBookingId)
     {
-        exception.Extensions["alternatives"] = await _judge.FindAlternativesAsync(resource, ownerId, range, attendees, excludeBookingId);
+        exception.Extensions["alternatives"] =
+            await _judge.FindAlternativesAsync(resource, ownerId, range, attendees, ToOrdered(addOns), excludeBookingId);
         return exception;
     }
+
+    // The add-ons asked for, checked: each exists, is active, is at the resource's location, once, with a quantity of 1 or more.
+    private async Task<List<(AddOn AddOn, int Quantity)>> LoadAddOnsAsync(List<AddOnOrderRequest>? requests, Resource resource)
+    {
+        requests ??= [];
+        var ids = requests.Select(r => r.AddOnId).ToList();
+        var found = await _db.AddOns.AsNoTracking().Where(a => ids.Contains(a.Id)).ToListAsync();
+
+        var errors = new Dictionary<string, string[]>();
+        var result = new List<(AddOn, int)>();
+        for (var i = 0; i < requests.Count; i++)
+        {
+            var addOn = found.FirstOrDefault(a => a.Id == requests[i].AddOnId);
+            if (addOn is null || !addOn.IsActive)
+            {
+                errors[$"addOns[{i}]"] = ["That add-on does not exist or is no longer offered. Choose one from the list."];
+            }
+            else if (addOn.LocationId != resource.LocationId)
+            {
+                errors[$"addOns[{i}]"] = [$"{addOn.Name} is not offered at {resource.Location.Name}. Remove it or choose a resource there."];
+            }
+            else if (requests[i].Quantity is null or < 1 or > 1000)
+            {
+                errors[$"addOns[{i}]"] = [$"Enter how many {addOn.Name} you need, from 1 to 1,000."];
+            }
+            else
+            {
+                result.Add((addOn, requests[i].Quantity!.Value));
+            }
+        }
+        if (ids.Distinct().Count() != ids.Count)
+        {
+            errors["addOns"] = ["Each add-on can be listed only once. Change the quantity instead."];
+        }
+        if (errors.Count > 0)
+        {
+            throw ApiException.Invalid(errors);
+        }
+        return result;
+    }
+
+    // The booking's undelivered orders, kept on a reschedule. Moving to another location needs them removed first.
+    private static List<(AddOn AddOn, int Quantity)> KeptAddOns(Domain.Booking booking, Resource resource)
+    {
+        var kept = booking.AddOnOrders.Where(o => o.Status == AddOnOrderStatus.Requested).ToList();
+        if (kept.Any(o => o.AddOn.LocationId != resource.LocationId))
+        {
+            throw ApiException.Invalid(new() { ["addOns"] = [$"Some add-ons on this booking are not offered at {resource.Location.Name}. Remove them to move it there."] });
+        }
+        return kept.Select(o => (o.AddOn, o.Quantity)).ToList();
+    }
+
+    private static AddOnOrder NewOrder((AddOn AddOn, int Quantity) item) =>
+        new() { Id = Guid.NewGuid(), AddOnId = item.AddOn.Id, Quantity = item.Quantity, Status = AddOnOrderStatus.Requested };
+
+    private static List<OrderedAddOn> ToOrdered(List<(AddOn AddOn, int Quantity)> addOns) =>
+        addOns.Select(a => new OrderedAddOn(a.AddOn.Name, a.AddOn.LeadTimeMinutes, a.AddOn.AvailableFrom, a.AddOn.AvailableUntil, a.Quantity)).ToList();
 
     private async Task<Resource> LoadBookableResourceAsync(Guid resourceId)
     {

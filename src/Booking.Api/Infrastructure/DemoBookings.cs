@@ -12,6 +12,7 @@ namespace Booking.Api.Infrastructure;
 // - Clash: Bob holds Room A 10:00 to 11:00, so Alice asking for 10:30 gets SLOT_TAKEN.
 // - Rule rejection: Room A 17:00 to 19:30 breaks opening hours (08:00 to 18:00) and the 2-hour maximum.
 // - Room B is free all day, so it appears as an alternative.
+// - Add-on notice: Alice's Boardroom lunch 12:00 to 13:00 has 6 sandwiches (24 hours' notice).
 public static class DemoBookings
 {
     private record Slot(Guid ResourceId, int StartHour, int StartMinute, int EndHour, int EndMinute, Guid? Owner = null);
@@ -67,8 +68,11 @@ public static class DemoBookings
 
         bookings.Add(New(DemoData.RoomAId, DemoData.BobId,
             LocalTime.ToUtc(demoDay, new TimeOnly(10, 0), zone), LocalTime.ToUtc(demoDay, new TimeOnly(11, 0), zone), BookingStatus.Confirmed, nowUtc));
-        bookings.Add(New(DemoData.BoardroomId, DemoData.AliceId,
-            LocalTime.ToUtc(demoDay, new TimeOnly(14, 0), zone), LocalTime.ToUtc(demoDay, new TimeOnly(15, 0), zone), BookingStatus.Confirmed, nowUtc));
+        // Alice's lunch meeting comes with sandwiches, so moving it to today shows the 24 hours' notice rule.
+        var lunch = New(DemoData.BoardroomId, DemoData.AliceId,
+            LocalTime.ToUtc(demoDay, new TimeOnly(12, 0), zone), LocalTime.ToUtc(demoDay, new TimeOnly(13, 0), zone), BookingStatus.Confirmed, nowUtc);
+        lunch.AddOnOrders.Add(new AddOnOrder { Id = Guid.NewGuid(), AddOnId = DemoData.SandwichesId, Quantity = 6, Status = AddOnOrderStatus.Requested });
+        bookings.Add(lunch);
         return bookings;
     }
 
