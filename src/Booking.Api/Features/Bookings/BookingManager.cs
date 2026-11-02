@@ -81,9 +81,10 @@ public class BookingManager
         {
             await _db.SaveChangesAsync();
         }
-        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.ExclusionViolation })
+        catch (Exception ex) when (PostgresErrors.IsSlotContention(ex))
         {
-            // Another request took the slot between our check and the insert; the database caught it.
+            // Another request took the slot between our check and the insert, or several requests for the
+            // same slot blocked each other and Postgres cancelled this one. Either way: 409, never a 500.
             _db.ChangeTracker.Clear();
             // If the winner was the same request sent twice (same key), this is a replay, not a clash.
             var stored = key is null ? null : await FindByKeyAsync(ownerId, key);
@@ -94,7 +95,7 @@ public class BookingManager
             var winner = await FindClashAsync(resourceId, range, excludeBookingId: null);
             throw winner is null ? SlotTakenWithoutTimes(resource) : SlotTaken(resource, winner);
         }
-        catch (DbUpdateException ex) when (key is not null && ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+        catch (Exception ex) when (key is not null && PostgresErrors.SqlState(ex) == PostgresErrorCodes.UniqueViolation)
         {
             // The same key raced us and won: return its booking.
             _db.ChangeTracker.Clear();
@@ -184,7 +185,7 @@ public class BookingManager
         {
             throw StaleVersion();
         }
-        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.ExclusionViolation })
+        catch (Exception ex) when (PostgresErrors.IsSlotContention(ex))
         {
             throw SlotTakenWithoutTimes(resource);
         }
