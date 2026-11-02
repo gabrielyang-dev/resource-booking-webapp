@@ -22,3 +22,6 @@ dist/
 .env.*
 !.env.example
 appsettings.Development.json
+
+# TypeScript incremental build output
+*.tsbuildinfo
