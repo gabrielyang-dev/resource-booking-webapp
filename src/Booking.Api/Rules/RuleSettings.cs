@@ -8,6 +8,7 @@ public record OpeningHoursSettings(string Opens, string Closes, string[] Days);
 public record MaxDurationSettings(int MaxMinutes);
 public record BookingWindowSettings(int MinNoticeMinutes, int MaxDaysAhead);
 public record DailyQuotaSettings(int MaxMinutesPerDay);
+public record CheckInSettings(bool Required, int OpensMinutesBefore, int ReleaseAfterMinutes);
 
 public static class RuleSettings
 {

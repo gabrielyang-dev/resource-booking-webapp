@@ -107,6 +107,9 @@ namespace Booking.Api.Infrastructure.Migrations
                     b.Property<int?>("Attendees")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime?>("CheckedInAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 

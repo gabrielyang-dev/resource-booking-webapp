@@ -87,7 +87,23 @@ export function MyBookingsPage() {
     }
   }
 
+  // The server decides whether check-in is open; it says when it opens if you are early.
+  async function checkIn(b: Booking) {
+    setErrors([]);
+    setMessage("");
+    try {
+      await api<Booking>("POST", `/api/bookings/${b.id}/check-in`);
+      setMessage(`Checked in to ${b.resourceName}. Enjoy your meeting.`);
+      await load();
+    } catch (error) {
+      setErrors(describeError(error));
+    }
+  }
+
   const now = Date.now();
+  // Show the button from 15 minutes before the start until the end (the usual check-in window).
+  const canCheckIn = (b: Booking) =>
+    b.status === "Confirmed" && now >= Date.parse(b.start) - 15 * 60 * 1000 && now < Date.parse(b.end);
 
   function table(rows: Booking[]) {
     return (
@@ -106,6 +122,7 @@ export function MyBookingsPage() {
               <td>
                 {holdingStatuses.includes(b.status) && Date.parse(b.end) > now && (
                   <>
+                    {canCheckIn(b) && <><button className="primary" onClick={() => checkIn(b)}>Check in</button>{" "}</>}
                     <button onClick={() => startEditing(b)}>Edit</button>{" "}
                     <button className="danger" onClick={() => cancel(b)}>Cancel booking</button>
                   </>

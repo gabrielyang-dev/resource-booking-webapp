@@ -13,6 +13,7 @@ namespace Booking.Api.Infrastructure;
 // - Rule rejection: Room A 17:00 to 19:30 breaks opening hours (08:00 to 18:00) and the 2-hour maximum.
 // - Room B is free all day, so it appears as an alternative.
 // - Add-on notice: Alice's Boardroom lunch 12:00 to 13:00 has 6 sandwiches (24 hours' notice).
+// - Check-in: past meeting-room bookings include released no-shows, so Insights shows booked, checked-in and no-show hours.
 public static class DemoBookings
 {
     private record Slot(Guid ResourceId, int StartHour, int StartMinute, int EndHour, int EndMinute, Guid? Owner = null);
@@ -59,9 +60,16 @@ public static class DemoBookings
                 {
                     continue;
                 }
-                var cancelled = (dayIndex * 7 + s) % 10 == 3;
-                var status = cancelled ? BookingStatus.Cancelled : end <= nowUtc ? BookingStatus.Completed : BookingStatus.Confirmed;
-                bookings.Add(New(slot.ResourceId, slot.Owner ?? owners[(dayIndex + s) % owners.Length], start, end, status, nowUtc));
+                var booking = New(slot.ResourceId, slot.Owner ?? owners[(dayIndex + s) % owners.Length], start, end, BookingStatus.Confirmed, nowUtc);
+                if ((dayIndex * 7 + s) % 10 == 3)
+                {
+                    booking.Status = BookingStatus.Cancelled;
+                }
+                else if (end <= nowUtc)
+                {
+                    SetPastOutcome(booking, slot.ResourceId, dayIndex, s);
+                }
+                bookings.Add(booking);
             }
             dayIndex++;
         }
@@ -113,6 +121,26 @@ public static class DemoBookings
             slots.Add(new(DemoData.PoolCarId, 8, 0, 17, 0));
         }
         return slots;
+    }
+
+    // How a past booking turned out. Meeting rooms require check-in, so about one in nine was a no-show
+    // and got released; the rest checked in a few minutes after the start. Desks and the car don't require it,
+    // and about one in four times people didn't bother: completed, but never checked in.
+    private static void SetPastOutcome(Domain.Booking booking, Guid resourceId, int dayIndex, int slotIndex)
+    {
+        if (IsMeetingRoom(resourceId))
+        {
+            if ((dayIndex * 3 + slotIndex) % 9 == 4)
+            {
+                booking.Status = BookingStatus.Released;
+                return;
+            }
+            booking.Status = BookingStatus.Completed;
+            booking.CheckedInAt = booking.Start.AddMinutes(3);
+            return;
+        }
+        booking.Status = BookingStatus.Completed;
+        booking.CheckedInAt = (dayIndex + slotIndex) % 4 == 0 ? null : booking.Start.AddMinutes(5);
     }
 
     private static bool IsMeetingRoom(Guid resourceId) =>

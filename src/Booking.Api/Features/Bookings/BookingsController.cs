@@ -44,6 +44,10 @@ public class BookingsController : ControllerBase
     public async Task<BookingResponse> Reschedule(Guid id, RescheduleRequest request) =>
         await _bookings.RescheduleAsync(id, _currentUser.Id, IsAdmin, request);
 
+    [HttpPost("api/bookings/{id:guid}/check-in")]
+    public async Task<BookingResponse> CheckIn(Guid id) =>
+        await _bookings.CheckInAsync(id, _currentUser.Id, IsAdmin);
+
     [HttpPost("api/bookings/{id:guid}/cancel")]
     public async Task<BookingResponse> Cancel(Guid id) =>
         await _bookings.CancelAsync(id, _currentUser.Id, IsAdmin);

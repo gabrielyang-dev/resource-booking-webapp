@@ -23,6 +23,9 @@ public class Booking
 
     public DateTime CreatedAt { get; set; }
 
+    // When the owner checked in (UTC). Kept after the booking completes, so insights can tell no-shows apart.
+    public DateTime? CheckedInAt { get; set; }
+
     // Add-ons ordered for this booking, in any status.
     public List<AddOnOrder> AddOnOrders { get; set; } = [];
 }

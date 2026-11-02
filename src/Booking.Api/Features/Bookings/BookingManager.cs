@@ -2,6 +2,7 @@ using Booking.Api.Abstractions;
 using Booking.Api.Domain;
 using Booking.Api.Errors;
 using Booking.Api.Features.Catalog;
+using Booking.Api.Features.Rules;
 using Booking.Api.Features.Shared;
 using Booking.Api.Infrastructure;
 using Booking.Api.Rules;
@@ -22,12 +23,14 @@ public class BookingManager
     private readonly AppDbContext _db;
     private readonly IClock _clock;
     private readonly BookingJudge _judge;
+    private readonly RulesManager _rules;
 
-    public BookingManager(AppDbContext db, IClock clock, BookingJudge judge)
+    public BookingManager(AppDbContext db, IClock clock, BookingJudge judge, RulesManager rules)
     {
         _db = db;
         _clock = clock;
         _judge = judge;
+        _rules = rules;
     }
 
     // Admins may book for someone else (request.OwnerId); the rules are then judged for that person.
@@ -240,6 +243,56 @@ public class BookingManager
         var free = await _judge.FindAvailableAsync(locationId, resourceTypeId, userId, range, attendees);
         var items = free.Skip((page - 1) * pageSize).Take(pageSize).Select(ResourceResponse.From).ToList();
         return new PagedResponse<ResourceResponse>(items, page, pageSize, free.Count);
+    }
+
+    // Compare-and-set: a Confirmed booking becomes CheckedIn, only inside its check-in window.
+    // Checking in twice is harmless; a cancelled, released or finished booking can't be checked in to.
+    public async Task<BookingResponse> CheckInAsync(Guid id, Guid userId, bool isAdmin)
+    {
+        var booking = await _db.Bookings.AsNoTracking().Include(b => b.Resource).ThenInclude(r => r.Location)
+            .FirstOrDefaultAsync(b => b.Id == id) ?? throw BookingNotFound();
+        EnsureCanChange(booking, userId, isAdmin);
+        if (booking.Status == BookingStatus.CheckedIn)
+        {
+            return await GetAsync(id);
+        }
+        if (booking.Status != BookingStatus.Confirmed)
+        {
+            throw ApiException.Conflict("INVALID_STATE",
+                $"This booking is {booking.Status.ToString().ToLowerInvariant()} and can't be checked in to.");
+        }
+
+        var settings = await _rules.GetEffectiveAsync(booking.Resource.Id, booking.Resource.ResourceTypeId);
+        var checkIn = settings.TryGetValue(RuleKind.CheckIn, out var json)
+            ? RuleSettings.Parse<CheckInSettings>(json) ?? CheckInRule.Default
+            : CheckInRule.Default;
+        var window = CheckInRule.Window(new TimeRange(booking.Start, booking.End), checkIn);
+        var now = _clock.UtcNow;
+        if (now < window.Start || now >= window.End)
+        {
+            var zone = LocalTime.Zone(booking.Resource.Location.TimeZone);
+            throw ApiException.Conflict("CHECK_IN_CLOSED",
+                $"Check-in for this booking is open from {LocalTime.ToLocal(window.Start, zone):HH:mm} to {LocalTime.ToLocal(window.End, zone):HH:mm} " +
+                $"on {LocalTime.ToLocal(window.Start, zone):ddd d MMM}. Try again then.");
+        }
+
+        var updated = await _db.Bookings
+            .Where(b => b.Id == id && b.Status == BookingStatus.Confirmed)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(b => b.Status, BookingStatus.CheckedIn)
+                .SetProperty(b => b.CheckedInAt, now)
+                .SetProperty(b => b.Version, b => b.Version + 1));
+        if (updated == 0)
+        {
+            // Something changed it since we read it (a second check-in, a cancel, a release): say what it is now.
+            var current = await _db.Bookings.AsNoTracking().FirstAsync(b => b.Id == id);
+            if (current.Status != BookingStatus.CheckedIn)
+            {
+                throw ApiException.Conflict("INVALID_STATE",
+                    $"This booking is {current.Status.ToString().ToLowerInvariant()} and can't be checked in to.");
+            }
+        }
+        return await GetAsync(id);
     }
 
     private static ApiException BookingNotFound() =>

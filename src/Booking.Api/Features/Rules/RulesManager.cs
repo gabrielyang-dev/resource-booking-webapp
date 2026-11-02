@@ -103,7 +103,7 @@ public class RulesManager
             if (!Enum.TryParse<RuleKind>(rule.Kind, ignoreCase: false, out var kind) || !Enum.IsDefined(kind)
                 || int.TryParse(rule.Kind, out _))
             {
-                errors[$"rules[{i}]"] = ["The kind must be OpeningHours, MaxDuration, BookingWindow or DailyQuota."];
+                errors[$"rules[{i}]"] = ["The kind must be OpeningHours, MaxDuration, BookingWindow, DailyQuota or CheckIn."];
                 continue;
             }
             if (rule.Settings is null || rule.Settings.Value.ValueKind != JsonValueKind.Object)
