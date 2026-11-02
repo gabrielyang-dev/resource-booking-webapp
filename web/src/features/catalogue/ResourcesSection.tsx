@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
-import { api, describeError, Location, Paged, Resource, ResourceType } from "../../api";
+import { api, describeError, Location, Paged, Resource, ResourceType, User } from "../../api";
 
 const pageSize = 5;
 
@@ -10,6 +10,7 @@ export function ResourcesSection() {
   const [items, setItems] = useState<Resource[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [types, setTypes] = useState<ResourceType[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [editing, setEditing] = useState<Editing>(null);
@@ -33,6 +34,7 @@ export function ResourcesSection() {
       try {
         setLocations((await api<Paged<Location>>("GET", "/api/locations?pageSize=100")).items);
         setTypes((await api<Paged<ResourceType>>("GET", "/api/resource-types?pageSize=100")).items);
+        setUsers((await api<Paged<User>>("GET", "/api/users?pageSize=100")).items);
       } catch (error) {
         setErrors(describeError(error));
       }
@@ -48,6 +50,7 @@ export function ResourcesSection() {
         resourceTypeId: resource.resourceTypeId,
         name: resource.name,
         capacity: resource.capacity,
+        approverId: resource.approverId,
         active,
       });
       await load(page);
@@ -68,7 +71,7 @@ export function ResourcesSection() {
         <thead>
           <tr>
             <th align="left">Name</th><th align="left">Type</th><th align="left">Location</th>
-            <th align="left">Capacity</th><th align="left">Status</th><th></th>
+            <th align="left">Capacity</th><th align="left">Approver</th><th align="left">Status</th><th></th>
           </tr>
         </thead>
         <tbody>
@@ -78,6 +81,7 @@ export function ResourcesSection() {
               <td>{r.resourceTypeName}</td>
               <td>{r.locationName}</td>
               <td>{r.capacity ?? "-"}</td>
+              <td>{users.find((u) => u.id === r.approverId)?.name ?? <span className="muted">none</span>}</td>
               <td>{r.active ? "Active" : "Inactive"}</td>
               <td>
                 <button onClick={() => setEditing(r)}>Edit</button>{" "}
@@ -100,6 +104,7 @@ export function ResourcesSection() {
           resource={editing === "new" ? null : editing}
           locations={locations}
           types={types}
+          users={users}
           onCancel={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);
@@ -115,15 +120,17 @@ type FormProps = {
   resource: Resource | null;
   locations: Location[];
   types: ResourceType[];
+  users: User[];
   onCancel: () => void;
   onSaved: () => void;
 };
 
-function ResourceForm({ resource, locations, types, onCancel, onSaved }: FormProps) {
+function ResourceForm({ resource, locations, types, users, onCancel, onSaved }: FormProps) {
   const [name, setName] = useState(resource?.name ?? "");
   const [locationId, setLocationId] = useState(resource?.locationId ?? locations[0]?.id ?? "");
   const [typeId, setTypeId] = useState(resource?.resourceTypeId ?? types[0]?.id ?? "");
   const [capacity, setCapacity] = useState(resource?.capacity?.toString() ?? "");
+  const [approverId, setApproverId] = useState(resource?.approverId ?? "");
   const [errors, setErrors] = useState<string[]>([]);
 
   async function save(event: FormEvent) {
@@ -142,6 +149,7 @@ function ResourceForm({ resource, locations, types, onCancel, onSaved }: FormPro
         name,
         capacity: typed === "" ? null : Number(typed),
         active: resource?.active ?? true,
+        approverId: approverId || null,
       };
       if (resource === null) {
         await api("POST", "/api/resources", body);
@@ -180,6 +188,14 @@ function ResourceForm({ resource, locations, types, onCancel, onSaved }: FormPro
       <p>
         <label>Capacity<br /><input value={capacity} onChange={(e) => setCapacity(e.target.value)} /></label>
         <br /><small>Whole number of people. Leave empty if it is not a limit on people.</small>
+      </p>
+      <p>
+        <label>Needs approval from<br />
+          <select value={approverId} onChange={(e) => setApproverId(e.target.value)}>
+            <option value="">Nobody: bookings are confirmed straight away</option>
+            {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </select>
+        </label>
       </p>
       <button type="submit">Save</button>{" "}
       <button type="button" onClick={onCancel}>Cancel</button>

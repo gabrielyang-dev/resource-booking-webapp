@@ -123,6 +123,10 @@ namespace Booking.Api.Infrastructure.Migrations
                     b.Property<Guid>("OwnerId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<Guid>("ResourceId")
                         .HasColumnType("uuid");
 
@@ -174,10 +178,40 @@ namespace Booking.Api.Infrastructure.Migrations
                     b.ToTable("Locations");
                 });
 
+            modelBuilder.Entity("Booking.Api.Domain.Notification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "CreatedAt");
+
+                    b.ToTable("Notifications");
+                });
+
             modelBuilder.Entity("Booking.Api.Domain.Resource", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ApproverId")
                         .HasColumnType("uuid");
 
                     b.Property<int?>("Capacity")
@@ -198,6 +232,8 @@ namespace Booking.Api.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ApproverId");
 
                     b.HasIndex("LocationId");
 
@@ -343,8 +379,22 @@ namespace Booking.Api.Infrastructure.Migrations
                     b.Navigation("Resource");
                 });
 
+            modelBuilder.Entity("Booking.Api.Domain.Notification", b =>
+                {
+                    b.HasOne("Booking.Api.Domain.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Booking.Api.Domain.Resource", b =>
                 {
+                    b.HasOne("Booking.Api.Domain.User", null)
+                        .WithMany()
+                        .HasForeignKey("ApproverId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Booking.Api.Domain.Location", "Location")
                         .WithMany()
                         .HasForeignKey("LocationId")

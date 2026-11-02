@@ -104,8 +104,9 @@ public static class DemoData
         // One statement, always in this order, so two resets cannot lock in opposite orders and deadlock.
         await db.Database.ExecuteSqlRawAsync(
             "LOCK TABLE \"Users\", \"Locations\", \"ResourceTypes\", \"Resources\", \"Bookings\", \"RuleSettings\", " +
-            "\"AddOns\", \"AddOnOrders\" IN EXCLUSIVE MODE");
+            "\"AddOns\", \"AddOnOrders\", \"Notifications\" IN EXCLUSIVE MODE");
         // Children before parents, because the foreign keys restrict deletes.
+        await db.Notifications.ExecuteDeleteAsync();
         await db.AddOnOrders.ExecuteDeleteAsync();
         await db.Bookings.ExecuteDeleteAsync();
         await db.AddOns.ExecuteDeleteAsync();
@@ -122,6 +123,7 @@ public static class DemoData
         if (nowUtc is not null)
         {
             db.Bookings.AddRange(DemoBookings.Create(nowUtc.Value));
+            db.Notifications.Add(DemoBookings.ApproverNotice(nowUtc.Value));
         }
         await db.SaveChangesAsync();
         await transaction.CommitAsync();
@@ -150,12 +152,12 @@ public static class DemoData
             Seed(Desk1Id, DeskTypeId, "Desk 1", 1),
             Seed(Desk2Id, DeskTypeId, "Desk 2", 1),
             Seed(Desk3Id, DeskTypeId, "Desk 3", 1),
-            Seed(PoolCarId, CarTypeId, "Pool car", 5),
+            Seed(PoolCarId, CarTypeId, "Pool car", 5, approverId: AdminId),
             Seed(ProjectorId, EquipmentTypeId, "Projector", null));
     }
 
-    private static Resource Seed(Guid id, Guid typeId, string name, int? capacity) =>
-        new() { Id = id, LocationId = LondonId, ResourceTypeId = typeId, Name = name, Capacity = capacity, IsActive = true };
+    private static Resource Seed(Guid id, Guid typeId, string name, int? capacity, Guid? approverId = null) =>
+        new() { Id = id, LocationId = LondonId, ResourceTypeId = typeId, Name = name, Capacity = capacity, IsActive = true, ApproverId = approverId };
 
     // Office defaults. Meeting rooms allow at most 2 hours, so "Room A 17:00 to 19:30" shows two violations in the demo.
     private static void AddSeedRules(AppDbContext db)

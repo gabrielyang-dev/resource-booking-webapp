@@ -64,6 +64,7 @@ public class ResourcesManager
             Name = name,
             Capacity = request.Capacity,
             IsActive = request.Active ?? true,
+            ApproverId = request.ApproverId,
         };
         _db.Resources.Add(resource);
         await SaveAsync();
@@ -81,6 +82,7 @@ public class ResourcesManager
         resource.Name = name;
         resource.Capacity = request.Capacity;
         resource.IsActive = request.Active!.Value;
+        resource.ApproverId = request.ApproverId;
         await SaveAsync();
         return await GetAsync(id, isAdmin: true);
     }
@@ -121,6 +123,11 @@ public class ResourcesManager
         if (request.Capacity is < 1 or > MaxCapacity)
         {
             errors["capacity"] = [$"Capacity must be a whole number from 1 to {MaxCapacity:N0}, or left empty if it is not a limit on people."];
+        }
+
+        if (request.ApproverId is not null && !await _db.Users.AnyAsync(u => u.Id == request.ApproverId))
+        {
+            errors["approverId"] = ["That approver does not exist. Choose a user from the list, or leave it empty."];
         }
 
         if (activeRequired && request.Active is null)

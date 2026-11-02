@@ -16,4 +16,7 @@ public class Resource
 
     // Resources are deactivated, never deleted, so bookings and history keep them.
     public bool IsActive { get; set; } = true;
+
+    // When set, bookings start as Pending until this user approves them (an approver is a user, not a role).
+    public Guid? ApproverId { get; set; }
 }

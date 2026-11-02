@@ -6,6 +6,7 @@ using Booking.Api.Features.Bookings;
 using Booking.Api.Features.Catalog;
 using Booking.Api.Features.Demo;
 using Booking.Api.Features.Insights;
+using Booking.Api.Features.Notifications;
 using Booking.Api.Features.Rules;
 using Booking.Api.Features.Session;
 using Booking.Api.Features.Users;
@@ -46,6 +47,8 @@ builder.Services.AddScoped<BookingManager>();
 builder.Services.AddScoped<BookingJudge>();
 builder.Services.AddScoped<AddOnsManager>();
 builder.Services.AddScoped<BookingIntentsManager>();
+builder.Services.AddScoped<NotificationsManager>();
+builder.Services.AddScoped<INotifier, InAppNotifier>();
 
 // Natural-language search is on only when an OpenAI key is configured (OpenAI__ApiKey); the model is OpenAI:Model.
 if (!string.IsNullOrWhiteSpace(builder.Configuration["OpenAI:ApiKey"]))
@@ -72,6 +75,7 @@ if (builder.Configuration.GetValue("Jobs:Enabled", true))
 {
     builder.Services.AddHostedService<CompleteEndedBookings>();
     builder.Services.AddHostedService<ReleaseNoShows>();
+    builder.Services.AddHostedService<ExpireApprovals>();
 }
 builder.Services.AddScoped<DemoManager>();
 

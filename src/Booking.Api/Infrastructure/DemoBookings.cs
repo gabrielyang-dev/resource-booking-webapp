@@ -14,6 +14,7 @@ namespace Booking.Api.Infrastructure;
 // - Room B is free all day, so it appears as an alternative.
 // - Add-on notice: Alice's Boardroom lunch 12:00 to 13:00 has 6 sandwiches (24 hours' notice).
 // - Check-in: past meeting-room bookings include released no-shows, so Insights shows booked, checked-in and no-show hours.
+// - Approval: Bob asked for the pool car all day; Ada approves the car, so it is Pending and on her Approvals page.
 public static class DemoBookings
 {
     private record Slot(Guid ResourceId, int StartHour, int StartMinute, int EndHour, int EndMinute, Guid? Owner = null);
@@ -48,8 +49,8 @@ public static class DemoBookings
             for (var s = 0; s < slots.Count; s++)
             {
                 var slot = slots[s];
-                // Meeting rooms on the demo day are left for the scripted scenarios below.
-                if (date == demoDay && IsMeetingRoom(slot.ResourceId))
+                // Meeting rooms and the pool car on the demo day are left for the scripted scenarios below.
+                if (date == demoDay && (IsMeetingRoom(slot.ResourceId) || slot.ResourceId == DemoData.PoolCarId))
                 {
                     continue;
                 }
@@ -81,7 +82,24 @@ public static class DemoBookings
             LocalTime.ToUtc(demoDay, new TimeOnly(12, 0), zone), LocalTime.ToUtc(demoDay, new TimeOnly(13, 0), zone), BookingStatus.Confirmed, nowUtc);
         lunch.AddOnOrders.Add(new AddOnOrder { Id = Guid.NewGuid(), AddOnId = DemoData.SandwichesId, Quantity = 6, Status = AddOnOrderStatus.Requested });
         bookings.Add(lunch);
+        // Bob wants the pool car all day; Ada approves the car, so it waits for her (see ApproverNotice).
+        bookings.Add(New(DemoData.PoolCarId, DemoData.BobId,
+            LocalTime.ToUtc(demoDay, new TimeOnly(8, 0), zone), LocalTime.ToUtc(demoDay, new TimeOnly(17, 0), zone), BookingStatus.Pending, nowUtc));
         return bookings;
+    }
+
+    // The bell message Ada would have got when Bob asked for the car.
+    public static Notification ApproverNotice(DateTime nowUtc)
+    {
+        var zone = LocalTime.Zone("Europe/London");
+        var demoDay = DemoDay(nowUtc, zone);
+        return new Notification
+        {
+            Id = Guid.NewGuid(),
+            UserId = DemoData.AdminId,
+            Message = $"Bob Member asked for Pool car on {demoDay:ddd d MMM}, 08:00 to 17:00. Approve or reject it under Approvals.",
+            CreatedAt = nowUtc,
+        };
     }
 
     // One weekday's pattern. Room A is the busiest (about 60% of 08:00 to 18:00), Room B about 35%,

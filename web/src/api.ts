@@ -18,6 +18,8 @@ export type Resource = {
   name: string;
   capacity: number | null;
   active: boolean;
+  // Bookings need this user's approval when set.
+  approverId: string | null;
 };
 
 // Start and end are UTC ISO strings; show them in the booking's timeZone.
@@ -36,8 +38,10 @@ export type Booking = {
   version: number;
   addOns: AddOnOrder[];
   checkedInAt: string | null;
+  rejectionReason: string | null;
   createdAt: string;
 };
+export type Notification = { id: string; message: string; createdAt: string; read: boolean };
 export type AddOnOrder = { id: string; addOnId: string; name: string; quantity: number; status: string };
 // Something ordered with a booking, like catering. Times are local HH:mm at its location.
 export type AddOn = {
