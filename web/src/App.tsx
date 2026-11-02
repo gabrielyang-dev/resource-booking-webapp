@@ -5,9 +5,10 @@ import { SignIn } from "./features/session/SignIn";
 import { UsersPage } from "./features/users/UsersPage";
 import { CataloguePage } from "./features/catalogue/CataloguePage";
 import { FindResourcePage } from "./features/catalogue/FindResourcePage";
+import { MyBookingsPage } from "./features/bookings/MyBookingsPage";
 
 // No routing library: the view is just state.
-type View = "home" | "find" | "users" | "catalogue";
+type View = "home" | "find" | "mine" | "users" | "catalogue";
 
 export function App() {
   // undefined = still checking the cookie, null = signed out.
@@ -73,6 +74,7 @@ export function App() {
             <button onClick={switchUser}>Switch user</button>
             <button onClick={() => setView("home")}>Home</button>
             <button onClick={() => setView("find")}>Find a resource</button>
+            <button onClick={() => setView("mine")}>My bookings</button>
             {user.role === "Admin" && (
               <>
                 <button onClick={() => setView("users")}>Users</button>
@@ -90,6 +92,7 @@ export function App() {
       {user === null && <SignIn onSignedIn={handleSignedIn} />}
       {user && view === "home" && <p>Welcome, {user.name}.</p>}
       {user && view === "find" && <FindResourcePage />}
+      {user && view === "mine" && <MyBookingsPage />}
       {user && user.role === "Admin" && view === "users" && <UsersPage />}
       {user && user.role === "Admin" && view === "catalogue" && <CataloguePage />}
 

@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { api, describeError, Location, Paged, Resource, ResourceType } from "../../api";
+import { ResourcePage } from "../bookings/ResourcePage";
 
 const pageSize = 10;
 
 // Members and admins: browse active resources, filtered by location and type.
 export function FindResourcePage() {
+  const [selected, setSelected] = useState<Resource | null>(null);
   const [locations, setLocations] = useState<Location[]>([]);
   const [types, setTypes] = useState<ResourceType[]>([]);
   const [locationId, setLocationId] = useState("");
@@ -49,6 +51,10 @@ export function FindResourcePage() {
 
   const lastPage = Math.max(1, Math.ceil(totalCount / pageSize));
 
+  if (selected) {
+    return <ResourcePage resource={selected} onBack={() => setSelected(null)} />;
+  }
+
   return (
     <section>
       <h2>Find a resource</h2>
@@ -76,7 +82,7 @@ export function FindResourcePage() {
         <tbody>
           {resources.map((r) => (
             <tr key={r.id}>
-              <td>{r.name}</td>
+              <td><button onClick={() => setSelected(r)}>{r.name}</button></td>
               <td>{r.resourceTypeName}</td>
               <td>{r.locationName}</td>
               <td>{r.capacity ?? "-"}</td>

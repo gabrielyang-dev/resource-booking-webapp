@@ -20,6 +20,24 @@ export type Resource = {
   active: boolean;
 };
 
+// Start and end are UTC ISO strings; show them in the booking's timeZone.
+export type Booking = {
+  id: string;
+  resourceId: string;
+  resourceName: string;
+  locationName: string;
+  timeZone: string;
+  ownerId: string;
+  ownerName: string;
+  start: string;
+  end: string;
+  status: string;
+  attendees: number | null;
+  version: number;
+  createdAt: string;
+};
+export type ResourceBooking = { id: string; start: string; end: string; status: string; ownerName: string };
+
 export class ApiError extends Error {
   status: number;
   code: string;
