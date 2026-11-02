@@ -22,6 +22,58 @@ namespace Booking.Api.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Booking.Api.Domain.Booking", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("Attendees")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("End")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("IdempotencyKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ResourceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("Start")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId", "IdempotencyKey")
+                        .IsUnique();
+
+                    b.HasIndex("OwnerId", "Start");
+
+                    b.HasIndex("ResourceId", "Start");
+
+                    b.ToTable("Bookings", t =>
+                        {
+                            t.HasCheckConstraint("CK_Bookings_End_After_Start", "\"End\" > \"Start\"");
+                        });
+                });
+
             modelBuilder.Entity("Booking.Api.Domain.Location", b =>
                 {
                     b.Property<Guid>("Id")
@@ -121,6 +173,25 @@ namespace Booking.Api.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("Booking.Api.Domain.Booking", b =>
+                {
+                    b.HasOne("Booking.Api.Domain.User", "Owner")
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Booking.Api.Domain.Resource", "Resource")
+                        .WithMany()
+                        .HasForeignKey("ResourceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Owner");
+
+                    b.Navigation("Resource");
                 });
 
             modelBuilder.Entity("Booking.Api.Domain.Resource", b =>

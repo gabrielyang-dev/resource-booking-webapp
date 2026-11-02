@@ -69,8 +69,9 @@ public static class DemoData
         // Taking these locks first makes the second reset wait, then run on the already clean tables.
         // One statement, always in this order, so two resets cannot lock in opposite orders and deadlock.
         await db.Database.ExecuteSqlRawAsync(
-            "LOCK TABLE \"Users\", \"Locations\", \"ResourceTypes\", \"Resources\" IN EXCLUSIVE MODE");
+            "LOCK TABLE \"Users\", \"Locations\", \"ResourceTypes\", \"Resources\", \"Bookings\" IN EXCLUSIVE MODE");
         // Children before parents, because the foreign keys restrict deletes.
+        await db.Bookings.ExecuteDeleteAsync();
         await db.Resources.ExecuteDeleteAsync();
         await db.Locations.ExecuteDeleteAsync();
         await db.ResourceTypes.ExecuteDeleteAsync();

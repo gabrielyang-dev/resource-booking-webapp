@@ -13,6 +13,7 @@ public class AppDbContext : DbContext
     public DbSet<Location> Locations => Set<Location>();
     public DbSet<ResourceType> ResourceTypes => Set<ResourceType>();
     public DbSet<Resource> Resources => Set<Resource>();
+    public DbSet<Domain.Booking> Bookings => Set<Domain.Booking>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -44,6 +45,21 @@ public class AppDbContext : DbContext
             resource.HasOne(r => r.ResourceType).WithMany().HasForeignKey(r => r.ResourceTypeId).OnDelete(DeleteBehavior.Restrict);
             resource.HasIndex(r => r.ResourceTypeId);
             resource.ToTable(t => t.HasCheckConstraint("CK_Resources_Capacity", "\"Capacity\" IS NULL OR \"Capacity\" >= 1"));
+        });
+
+        // The exclusion constraint that stops double bookings is created with SQL in the migration,
+        // because EF cannot model it.
+        modelBuilder.Entity<Domain.Booking>(booking =>
+        {
+            booking.Property(b => b.Status).HasConversion<string>().HasMaxLength(20);
+            booking.Property(b => b.IdempotencyKey).HasMaxLength(200);
+            booking.Property(b => b.Version).IsConcurrencyToken();
+            booking.HasOne(b => b.Resource).WithMany().HasForeignKey(b => b.ResourceId).OnDelete(DeleteBehavior.Restrict);
+            booking.HasOne(b => b.Owner).WithMany().HasForeignKey(b => b.OwnerId).OnDelete(DeleteBehavior.Restrict);
+            booking.HasIndex(b => new { b.ResourceId, b.Start });
+            booking.HasIndex(b => new { b.OwnerId, b.Start });
+            booking.HasIndex(b => new { b.OwnerId, b.IdempotencyKey }).IsUnique();
+            booking.ToTable(t => t.HasCheckConstraint("CK_Bookings_End_After_Start", "\"End\" > \"Start\""));
         });
     }
 }
