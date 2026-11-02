@@ -22,16 +22,19 @@ P0
 
 P1 (starts after 08)
 06 -> 09 -> 14
-06 -> 10 -> 11
+06 -> 10
 05 -> 12
 05, 08 -> 13
-08, 09, 11, 12, 13, 14 -> 15
+08, 09, 10, 12, 13, 14 -> 15
 
 P2 (starts after 15, each optional)
 13 -> 16      05 -> 17      05 -> 18      05 -> 19      08 -> 20
+
+Future updates (after the handover)
+10 -> 11
 ```
 
-Build order: 01 to 08 in sequence, then 09 to 14 (any order the graph allows), then 15, then P2.
+Build order: 01 to 08 in sequence, then 09, 10, 12, 13 and 14 (any order the graph allows), then 15, then P2. 11 moved to Future updates.
 
 ## P0: the brief
 
@@ -117,14 +120,6 @@ Build order: 01 to 08 in sequence, then 09 to 14 (any order the graph allows), t
 - **Demo:** book a room for tomorrow at 12:00 with sandwiches. Moving it to today shows "Sandwiches need 24 hours' notice".
 - **Door:** one-way (migration).
 
-### 11 Fulfiller queue
-- **Branch / title:** `feat/fulfiller-queue` · `feat: add fulfiller queue for add-on orders`
-- **Why:** someone has to deliver the catering.
-- **Changes:** `GET /api/add-on-orders?mine-to-fulfil=true` (paginated, ordered by delivery time) and `POST /api/add-on-orders/{id}/deliver` (compare-and-set). UI: a Fulfiller page grouped by day.
-- **Tests:** integration tests for a fulfiller seeing only their orders and deliver run twice.
-- **Demo:** sign in as the catering fulfiller, see tomorrow's sandwiches, mark them delivered.
-- **Door:** two-way.
-
 ### 12 Approvals
 - **Branch / title:** `feat/approvals` · `feat: require approval for selected resources`
 - **Why:** some resources, like the pool car, need someone to say yes.
@@ -164,6 +159,19 @@ Build order: 01 to 08 in sequence, then 09 to 14 (any order the graph allows), t
 - **19 Mocked calendar sync** (`feat/calendar-sync`): `ICalendarSync` with a fake that logs create, update and cancel.
 - **20 AI insight summary** (`feat/insight-summary`): a paragraph summarising utilisation, written from the numbers that 08 computes.
 
+## Future updates
+
+Planned and specified, but deliberately left until after the handover. Each can be picked up as a thin PR on its own.
+
+### 11 Fulfiller queue
+- **Why it moved:** add-ons (10) already deliver the user-facing value: ordering with a booking, with lead time and delivery hours enforced, and cancellation cascading. The queue serves the back office (the catering team) rather than the people booking. Approvals (12) and check-in (13) mattered more for the brief's focus on constraints and utilisation. `AddOn.FulfillerId` and the `Delivered` order status are already in place, so nothing needs rework.
+- **Branch / title:** `feat/fulfiller-queue` · `feat: add fulfiller queue for add-on orders`
+- **Why:** someone has to deliver the catering.
+- **Changes:** `GET /api/add-on-orders?mine-to-fulfil=true` (paginated, ordered by delivery time) and `POST /api/add-on-orders/{id}/deliver` (compare-and-set `Requested` to `Delivered`). Orders on cancelled or rejected bookings are already `Cancelled`, so they drop out. UI: a Fulfiller page grouped by day.
+- **Tests:** integration tests for a fulfiller seeing only their orders and deliver run twice.
+- **Demo:** sign in as the catering fulfiller, see tomorrow's sandwiches, mark them delivered.
+- **Door:** two-way.
+
 ## Coverage check
 
 | Must hold | Owning PR |
@@ -173,7 +181,7 @@ Build order: 01 to 08 in sequence, then 09 to 14 (any order the graph allows), t
 | Exclusion constraint; `23P01` becomes 409 | 04 |
 | Concurrency: exactly one wins | 04 |
 | `Idempotency-Key` on create | 04 |
-| `Version` token; compare-and-set status changes | 05 (then 08, 11, 12, 13) |
+| `Version` token; compare-and-set status changes | 05 (then 08, 12, 13; 11 in Future updates) |
 | Reschedule excludes itself and re-runs every rule | 05, 06 |
 | Rules judged for the owner | 06, 07 |
 | Two unit tests per rule | 06, 07, 10, 13 |
